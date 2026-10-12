@@ -7,3 +7,4 @@ RUN npm run build
 
 FROM caddy:2
 COPY --from=build /app/dist /srv/frontend
+COPY Caddyfile /etc/caddy/Caddyfile

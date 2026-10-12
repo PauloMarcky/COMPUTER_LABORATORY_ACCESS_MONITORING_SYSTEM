@@ -47,11 +47,6 @@ services:
   caddy:
     build: ./frontend
     mem_limit: 128m
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
     restart: unless-stopped
     depends_on:
       - api
@@ -61,7 +56,6 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
 
