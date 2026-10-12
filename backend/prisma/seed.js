@@ -74,7 +74,36 @@ async function main() {
     console.log('• Lab room already exists:', labRoom.roomName);
   }
 
-  // ---- 5. Active term ----
+  // ---- 5. Terms (this system only supports 1st and 2nd semester) ----
+  const termData = [
+    {
+      academicYear: '2024-2025',
+      semester: '1ST',
+      startDate: new Date('2024-08-01'),
+      endDate: new Date('2024-12-15'),
+      isActive: true,
+    },
+    {
+      academicYear: '2024-2025',
+      semester: '2ND',
+      startDate: new Date('2025-01-06'),
+      endDate: new Date('2025-05-31'),
+      isActive: false,
+    },
+  ];
+  for (const t of termData) {
+    const existing = await prisma.term.findFirst({
+      where: { academicYear: t.academicYear, semester: t.semester },
+    });
+    if (existing) {
+      console.log('Term already exists:', existing.academicYear, existing.semester);
+    } else {
+      const created = await prisma.term.create({ data: t });
+      console.log('Term seeded:', created.academicYear, created.semester);
+    }
+  }
+
+  // ---- 5b. Legacy single-term check (kept as a no-op if already seeded) ----
   let term = await prisma.term.findFirst({
     where: { academicYear: '2024-2025', semester: '1ST' },
   });

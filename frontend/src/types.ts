@@ -56,7 +56,7 @@ export interface AttendanceEntry {
 
 export interface PCStation {
   number: string;
-  status: 'occupied' | 'free' | 'you';
+  status: 'occupied' | 'free' | 'you' | 'unavailable';
   occupantName?: string;
   occupantId?: string;
   hasIssue?: boolean;
@@ -112,6 +112,16 @@ export interface LabRoomStatus {
   availablePcs: number;
   occupiedPcs: number;
   totalPcs: number;
+}
+
+export type PcStatus = 'AVAILABLE' | 'UNDER_REPAIR' | 'BROKEN' | 'RETIRED';
+
+export interface Pc {
+  id: number;
+  labRoomId: number;
+  pcNumber: string;
+  status: PcStatus;
+  notes: string | null;
 }
 
 export interface ScheduleEntry {

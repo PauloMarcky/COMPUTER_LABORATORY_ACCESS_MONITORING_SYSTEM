@@ -29,6 +29,18 @@ async function claimPc(req, res) {
       });
       if (mine) return { status: 409, error: `You already occupy PC ${mine.pcNumber}. Release it first.` };
 
+      const pc = await tx.pc.findUnique({
+        where: { labRoomId_pcNumber: { labRoomId: session.schedule.labRoomId, pcNumber } },
+        select: { status: true },
+      });
+      if (!pc) return { status: 404, error: 'That PC does not exist in this room.' };
+      if (pc.status !== 'AVAILABLE') {
+        const label = pc.status === 'UNDER_REPAIR' ? 'under repair'
+          : pc.status === 'BROKEN' ? 'marked as broken'
+          : 'out of service';
+        return { status: 409, error: `That PC is ${label} and cannot be claimed.` };
+      }
+
       const taken = await tx.pcOccupancy.findFirst({
         where: {
           pcNumber,
@@ -134,14 +146,23 @@ async function listAvailability(req, res) {
       studentProfileId: student.id,
       schedule: { activeSessions: { some: { id: activeSessionId, status: 'ACTIVE' } } },
     },
+    include: { schedule: { select: { labRoomId: true } } },
   });
   if (!enrollment) return res.status(403).json({ error: 'You are not enrolled in this active session.' });
 
-  const occupancies = await prisma.pcOccupancy.findMany({
-    where: { activeSessionId, timeReleased: null },
-    select: { pcNumber: true },
-  });
-  return res.json({ occupancies });
+  const [occupancies, roomPcs] = await Promise.all([
+    prisma.pcOccupancy.findMany({
+      where: { activeSessionId, timeReleased: null },
+      select: { pcNumber: true },
+    }),
+    prisma.pc.findMany({
+      where: { labRoomId: enrollment.schedule.labRoomId },
+      select: { pcNumber: true, status: true, notes: true },
+      orderBy: { pcNumber: 'asc' },
+    }),
+  ]);
+
+  return res.json({ occupancies, pcs: roomPcs });
 }
 
 module.exports = { claimPc, releasePc, listBySession, getMyOccupancy, listAvailability };

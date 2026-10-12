@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Camera, CameraOff, CheckCircle2, XCircle, AlertTriangle, ZoomIn, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../../api';
 
 // Express runs OCR (Python worker), then only accepts students enrolled in this schedule
 const SCAN_IMAGE_URL = `${API_BASE_URL}/attendance/scan-image`;
-const SCAN_INTERVAL_MS = 450;
+const SCAN_INTERVAL_MS = 700;
+const WARMUP_MS = 1200; // give the webcam autofocus time to settle before first scan
 const COOLDOWN_MS = 2500; // don't re-scan the same ID immediately
 const FEEDBACK_MS = 1400; // how long the result overlay stays on screen
 
@@ -78,6 +79,7 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const busyRef = useRef(false);
+  const warmupUntilRef = useRef<number>(0);
   const recentRef = useRef<Map<string, number>>(new Map());
   const onMatchedRef = useRef(onMatched);
   onMatchedRef.current = onMatched;
@@ -86,6 +88,13 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
   const [cameraReady, setCameraReady] = useState(false);
   const [status, setStatus] = useState('Align Student ID inside the frame');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamId, setSelectedCamId] = useState<string>(() => {
+    try { return localStorage.getItem('clams:cameraId') ?? ''; } catch { return ''; }
+  });
+  const [zoom, setZoom] = useState(1);
+  const [focusSupported, setFocusSupported] = useState<boolean | null>(null);
+  const [refocusNonce, setRefocusNonce] = useState(0);
   const feedbackRef = useRef<Feedback | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,6 +113,82 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
   }, []);
 
+  const refreshCameras = React.useCallback(async () => {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      setCameras(all.filter((d) => d.kind === 'videoinput'));
+    } catch {
+      /* enumerateDevices unavailable */
+    }
+  }, []);
+
+  const pickCamera = React.useCallback((id: string) => {
+    setSelectedCamId(id);
+    try {
+      if (id) localStorage.setItem('clams:cameraId', id);
+      else localStorage.removeItem('clams:cameraId');
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  // Ask the track for continuous autofocus. Returns true only if the driver
+  // actually exposes focus control; false means fixed-focus hardware.
+  const applyCameraFocus = React.useCallback(async (track: MediaStreamTrack): Promise<boolean> => {
+    try {
+      const caps = (track.getCapabilities?.() ?? {}) as MediaTrackCapabilities & {
+        focusMode?: string[];
+      };
+      if (!Array.isArray(caps.focusMode) || caps.focusMode.length === 0) return false;
+      const mode = caps.focusMode.includes('continuous') ? 'continuous' : caps.focusMode[0];
+      await track.applyConstraints({
+        advanced: [{ focusMode: mode } as unknown as MediaTrackConstraintSet],
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Force a fresh autofocus hunt. Prefers single-shot then back to continuous;
+  // falls back to restarting the stream for cams that don't expose single-shot.
+  const triggerRefocus = React.useCallback(async () => {
+    const stream = (videoRef.current?.srcObject as MediaStream | null) ?? null;
+    const track = stream?.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const caps = (track.getCapabilities?.() ?? {}) as MediaTrackCapabilities & {
+        focusMode?: string[];
+      };
+      if (Array.isArray(caps.focusMode) && caps.focusMode.includes('single-shot')) {
+        await track.applyConstraints({
+          advanced: [{ focusMode: 'single-shot' } as unknown as MediaTrackConstraintSet],
+        });
+        setTimeout(() => {
+          track
+            .applyConstraints({
+              advanced: [{ focusMode: 'continuous' } as unknown as MediaTrackConstraintSet],
+            })
+            .catch(() => { /* ignore */ });
+        }, 800);
+        return;
+      }
+    } catch {
+      /* fall through to stream restart */
+    }
+    setRefocusNonce((n) => n + 1);
+  }, []);
+
+  // Keep the camera list fresh; labels appear after first permission grant.
+  useEffect(() => {
+    const md = navigator.mediaDevices;
+    if (!md) return;
+    refreshCameras();
+    const handler = () => refreshCameras();
+    md.addEventListener?.('devicechange', handler);
+    return () => md.removeEventListener?.('devicechange', handler);
+  }, [refreshCameras]);
+
   // Start / stop camera
   useEffect(() => {
     if (!active) {
@@ -120,8 +205,16 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
     let stream: MediaStream | null = null;
     let cancelled = false;
 
+    const videoConstraints: MediaTrackConstraints = {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    };
+    if (selectedCamId) {
+      videoConstraints.deviceId = { exact: selectedCamId };
+    }
+
     navigator.mediaDevices
-      .getUserMedia({ video: { width: { ideal: 960 }, height: { ideal: 540 } }, audio: false })
+      .getUserMedia({ video: videoConstraints, audio: false })
       .then((s) => {
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());
@@ -135,9 +228,21 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
         }
         setError(null);
         setCameraReady(true);
+        warmupUntilRef.current = Date.now() + WARMUP_MS;
+        // Ask the camera for continuous autofocus. Silent no-op on fixed-focus
+        // hardware that does not expose focus control to the browser.
+        const track = s.getVideoTracks()[0];
+        applyCameraFocus(track).then(setFocusSupported);
+        // Labels become available after the first successful permission grant.
+        refreshCameras();
       })
       .catch((e: unknown) => {
         const name = (e as { name?: string })?.name;
+        // Stale or unplugged camera: clear the saved pick and retry with default.
+        if (selectedCamId && (name === 'OverconstrainedError' || name === 'NotFoundError')) {
+          pickCamera('');
+          return;
+        }
         setError(
           name === 'NotAllowedError'
             ? 'Camera permission denied. Allow camera access in the browser.'
@@ -154,7 +259,7 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
       setCameraReady(false);
       stream?.getTracks().forEach((t) => t.stop());
     };
-  }, [active]);
+  }, [active, selectedCamId, refocusNonce, applyCameraFocus, refreshCameras, pickCamera]);
 
   // Scan loop
   useEffect(() => {
@@ -163,17 +268,21 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
     const tick = async () => {
       const video = videoRef.current;
       if (!video || video.videoWidth === 0 || busyRef.current || feedbackRef.current) return;
+      // Skip frames while autofocus is still settling after stream start.
+      if (Date.now() < warmupUntilRef.current) return;
       busyRef.current = true;
 
       try {
         if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
         const canvas = canvasRef.current;
 
-        // Crop same ROI as the on-screen box (x 10-90%, y 20-80%)
-        const sx = video.videoWidth * 0.1;
-        const sy = video.videoHeight * 0.2;
-        const sw = video.videoWidth * 0.8;
-        const sh = video.videoHeight * 0.6;
+        // Crop tracks the on-screen box; zoom > 1 shrinks the ROI around center.
+        const halfW = 0.4 / zoom;
+        const halfH = 0.3 / zoom;
+        const sx = video.videoWidth * (0.5 - halfW);
+        const sy = video.videoHeight * (0.5 - halfH);
+        const sw = video.videoWidth * (2 * halfW);
+        const sh = video.videoHeight * (2 * halfH);
         canvas.width = sw;
         canvas.height = sh;
         canvas.getContext('2d')!.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
@@ -293,7 +402,7 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
 
     const id = setInterval(tick, SCAN_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [active, cameraReady, scheduleId, token, subject]);
+  }, [active, cameraReady, scheduleId, token, subject, zoom]);
 
   if (!active) {
     return (
@@ -308,6 +417,54 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
 
   return (
     <div>
+      {cameras.length > 0 && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-slate-600">
+          <Camera className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+          <label htmlFor="clams-camera-picker" className="font-semibold">Camera:</label>
+          <select
+            id="clams-camera-picker"
+            value={selectedCamId}
+            onChange={(e) => pickCamera(e.target.value)}
+            className="flex-1 min-w-0 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1b325f]/40"
+          >
+            <option value="">System default</option>
+            {cameras.map((c, i) => (
+              <option key={c.deviceId || `cam-${i}`} value={c.deviceId}>
+                {c.label || `Camera ${i + 1}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="mb-2 flex items-center gap-3 flex-wrap text-xs text-slate-600">
+        <div className="flex items-center gap-1.5">
+          <ZoomIn className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+          <label htmlFor="clams-zoom" className="font-semibold">Zoom:</label>
+          <input
+            id="clams-zoom"
+            type="range"
+            min={1}
+            max={3}
+            step={0.25}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="w-24 accent-[#1b325f]"
+          />
+          <span className="tabular-nums w-10">{zoom.toFixed(2)}x</span>
+        </div>
+        <button
+          type="button"
+          onClick={triggerRefocus}
+          className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50"
+          title="Force the camera to hunt for focus again"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Refocus
+        </button>
+        <span className="text-[10px] text-slate-400">
+          {focusSupported === null ? 'checking focus...' : focusSupported ? 'AF supported' : 'no AF (fixed focus)'}
+        </span>
+      </div>
       <div className="relative w-full h-60 rounded-xl overflow-hidden bg-black">
         <video
           ref={videoRef}
@@ -325,7 +482,7 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
                 ? 'border-rose-400'
                 : 'border-white/70'
             }`}
-          style={{ left: '10%', right: '10%', top: '20%', bottom: '20%' }}
+          style={{ left: `${(0.5 - 0.4 / zoom) * 100}%`, right: `${(0.5 - 0.4 / zoom) * 100}%`, top: `${(0.5 - 0.3 / zoom) * 100}%`, bottom: `${(0.5 - 0.3 / zoom) * 100}%` }}
         />
         {feedback && (
           <div

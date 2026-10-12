@@ -76,7 +76,24 @@ model LabRoom {
 
   schedules Schedule[]
 
+  pcs       Pc[]
+
   @@map("lab_rooms")
+}
+
+model Pc {
+  id        Int      @id @default(autoincrement()) @map("pc_id")
+  labRoomId Int      @map("lab_room_id")
+  pcNumber  String   @map("pc_number") @db.VarChar(20)
+  status    String   @default("AVAILABLE") @db.VarChar(20)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  labRoom LabRoom @relation(fields: [labRoomId], references: [id], onDelete: Cascade)
+
+  @@unique([labRoomId, pcNumber])
+  @@map("pcs")
 }
 
 model Schedule {

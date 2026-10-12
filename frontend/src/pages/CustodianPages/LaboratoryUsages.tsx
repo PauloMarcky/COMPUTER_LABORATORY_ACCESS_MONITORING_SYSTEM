@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock, Download,
-  Monitor, Printer, Search, User, Users, X,
+  BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Edit3,
+  Monitor, Plus, Printer, Search, Trash2, User, Users, Wrench, X,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { LabStaffSubNav } from '../../components/CustodianComponents/LabStaffSubNav';
 import { formatSchoolDate } from '../../utils/attendance-time';
-import type { LabRoomStatus, LabUsageRecord, WireframeScreenId } from '../../types';
+import { API_BASE_URL, readApiResponse } from '../../api';
+import type { LabRoomStatus, LabUsageRecord, Pc, PcStatus, WireframeScreenId } from '../../types';
 
 interface Props {
   records: LabUsageRecord[];
@@ -15,6 +16,8 @@ interface Props {
   activeTab: 'rooms' | 'history';
   onTabChange: (tab: 'rooms' | 'history') => void;
   onNavigate: (screen: WireframeScreenId) => void;
+  token?: string;
+  onRoomsChanged?: () => void;
 }
 
 /* ---------------- Date helpers ---------------- */
@@ -54,6 +57,8 @@ export const LabStaffUsagePage: React.FC<Props> = ({
   activeTab,
   onTabChange,
   onNavigate,
+  token,
+  onRoomsChanged,
 }) => {
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7] print:min-h-0 print:bg-white">
@@ -101,7 +106,9 @@ export const LabStaffUsagePage: React.FC<Props> = ({
             </div>
           </div>
 
-          {activeTab === 'rooms' ? <RoomsTab rooms={rooms} /> : <HistoryTab records={records} />}
+          {activeTab === 'rooms'
+            ? <RoomsTab rooms={rooms} token={token} onRoomsChanged={onRoomsChanged} />
+            : <HistoryTab records={records} />}
         </main>
       </div>
 
@@ -114,8 +121,161 @@ export const LabStaffUsagePage: React.FC<Props> = ({
  *  TAB 1 — LIVE ROOMS
  * ================================================================ */
 
-const RoomsTab: React.FC<{ rooms: LabRoomStatus[] }> = ({ rooms }) => {
+const PC_STATUS_CYCLE: PcStatus[] = ['AVAILABLE', 'UNDER_REPAIR', 'BROKEN'];
+
+const RoomsTab: React.FC<{
+  rooms: LabRoomStatus[];
+  token?: string;
+  onRoomsChanged?: () => void;
+}> = ({ rooms, token, onRoomsChanged }) => {
   const [statusFilter, setStatusFilter] = useState<'IN USE' | 'ALL'>('IN USE');
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<LabRoomStatus | null>(null);
+  const [formName, setFormName] = useState('');
+  const [formCapacity, setFormCapacity] = useState('0');
+  const [formDescription, setFormDescription] = useState('');
+  const [formBusy, setFormBusy] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const [expandedRoomId, setExpandedRoomId] = useState<string | null>(null);
+  const [pcsByRoom, setPcsByRoom] = useState<Record<string, Pc[]>>({});
+  const [pcsLoading, setPcsLoading] = useState<string | null>(null);
+  const [pcsError, setPcsError] = useState<string | null>(null);
+
+  const canMutate = Boolean(token);
+
+  const openCreateForm = () => {
+    setEditingRoom(null);
+    setFormName('');
+    setFormCapacity('0');
+    setFormDescription('');
+    setFormError('');
+    setFormOpen(true);
+  };
+
+  const openEditForm = (room: LabRoomStatus) => {
+    setEditingRoom(room);
+    setFormName(room.name);
+    setFormCapacity(String(room.totalPcs));
+    setFormDescription(room.location);
+    setFormError('');
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    if (formBusy) return;
+    setFormOpen(false);
+    setFormError('');
+  };
+
+  const submitForm = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+    setFormError('');
+
+    const trimmedName = formName.trim();
+    if (!trimmedName) {
+      setFormError('Room name is required.');
+      return;
+    }
+    const capacity = Number(formCapacity);
+    if (!Number.isInteger(capacity) || capacity < 0 || capacity > 200) {
+      setFormError('Capacity must be a whole number between 0 and 200.');
+      return;
+    }
+
+    setFormBusy(true);
+    try {
+      const isEdit = Boolean(editingRoom);
+      const url = isEdit
+        ? `${API_BASE_URL}/lab-rooms/${editingRoom!.id}`
+        : `${API_BASE_URL}/lab-rooms`;
+      const response = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomName: trimmedName,
+          capacity,
+          description: formDescription.trim() || null,
+        }),
+      });
+      const data = await readApiResponse<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || 'Unable to save room.');
+      setFormOpen(false);
+      onRoomsChanged?.();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Unable to save room.');
+    } finally {
+      setFormBusy(false);
+    }
+  };
+
+  const handleDelete = async (room: LabRoomStatus) => {
+    if (!token) return;
+    if (!window.confirm(`Delete "${room.name}"? This cannot be undone.`)) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/lab-rooms/${room.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await readApiResponse<{ error?: string }>(response);
+        throw new Error(data.error || 'Unable to delete room.');
+      }
+      onRoomsChanged?.();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to delete room.');
+    }
+  };
+
+  const toggleRoomPcs = async (room: LabRoomStatus) => {
+    if (expandedRoomId === room.id) {
+      setExpandedRoomId(null);
+      return;
+    }
+    setExpandedRoomId(room.id);
+    if (pcsByRoom[room.id] || !token) return;
+
+    setPcsLoading(room.id);
+    setPcsError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/lab-rooms/${room.id}/pcs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await readApiResponse<{ error?: string; pcs: Pc[] }>(response);
+      if (!response.ok) throw new Error(data.error || 'Unable to load PCs.');
+      setPcsByRoom((prev) => ({ ...prev, [room.id]: data.pcs }));
+    } catch (error) {
+      setPcsError(error instanceof Error ? error.message : 'Unable to load PCs.');
+    } finally {
+      setPcsLoading(null);
+    }
+  };
+
+  const cyclePcStatus = async (roomId: string, pc: Pc) => {
+    if (!token) return;
+    const currentIndex = PC_STATUS_CYCLE.indexOf(pc.status);
+    const nextStatus = currentIndex === -1
+      ? PC_STATUS_CYCLE[0]
+      : PC_STATUS_CYCLE[(currentIndex + 1) % PC_STATUS_CYCLE.length];
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/lab-rooms/pcs/${pc.id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await readApiResponse<{ error?: string; pc: Pc }>(response);
+      if (!response.ok) throw new Error(data.error || 'Unable to update PC.');
+      setPcsByRoom((prev) => ({
+        ...prev,
+        [roomId]: (prev[roomId] || []).map((item) => (item.id === pc.id ? data.pc : item)),
+      }));
+    } catch (error) {
+      setPcsError(error instanceof Error ? error.message : 'Unable to update PC.');
+    }
+  };
 
   const inUseRooms = rooms.filter((r) => r.status === 'IN USE');
   const availableRooms = rooms.filter((r) => r.status === 'AVAILABLE');
@@ -123,6 +283,19 @@ const RoomsTab: React.FC<{ rooms: LabRoomStatus[] }> = ({ rooms }) => {
 
   return (
     <>
+      {canMutate && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={openCreateForm}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Laboratory Room
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <button
           type="button"
@@ -226,9 +399,168 @@ const RoomsTab: React.FC<{ rooms: LabRoomStatus[] }> = ({ rooms }) => {
                     </span>
                   </span>
                 </div>
+
+                {canMutate && (
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => void toggleRoomPcs(room)}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                    >
+                      <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
+                      {expandedRoomId === room.id ? 'Hide PCs' : 'Manage PCs'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(room)}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(room)}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+
+                {expandedRoomId === room.id && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    {pcsLoading === room.id ? (
+                      <p className="py-4 text-center text-xs text-slate-400">Loading PCs…</p>
+                    ) : pcsError && !pcsByRoom[room.id] ? (
+                      <p className="py-4 text-center text-xs text-rose-600">{pcsError}</p>
+                    ) : (
+                      <>
+                        <p className="mb-2 text-xs text-slate-500">
+                          Click a PC to cycle: Available → Under Repair → Broken.
+                        </p>
+                        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                          {(pcsByRoom[room.id] || []).map((pc) => {
+                            const palette: Record<PcStatus, string> = {
+                              AVAILABLE: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                              UNDER_REPAIR: 'border-amber-200 bg-amber-50 text-amber-700',
+                              BROKEN: 'border-rose-200 bg-rose-50 text-rose-700',
+                              RETIRED: 'border-slate-200 bg-slate-100 text-slate-400',
+                            };
+                            return (
+                              <button
+                                key={pc.id}
+                                type="button"
+                                title={pc.notes || pc.status}
+                                onClick={() => void cyclePcStatus(room.id, pc)}
+                                className={`cursor-pointer rounded-md border px-2 py-1.5 text-xs font-semibold tabular-nums transition-colors hover:brightness-95 ${palette[pc.status]}`}
+                              >
+                                {pc.pcNumber}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {pcsError && pcsByRoom[room.id] && (
+                          <p className="mt-2 text-xs text-rose-600">{pcsError}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {formOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <form
+            onSubmit={submitForm}
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#1b325f]">
+                {editingRoom ? 'Edit Laboratory Room' : 'Add Laboratory Room'}
+              </h2>
+              <button
+                type="button"
+                onClick={closeForm}
+                disabled={formBusy}
+                className="cursor-pointer rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block text-xs font-semibold text-slate-500">
+                Room name
+                <input
+                  type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="e.g. Lab 5"
+                  className="mt-1.5 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#1b325f] focus:bg-white focus:ring-4 focus:ring-[#1b325f]/15"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Capacity (number of PCs)
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  value={formCapacity}
+                  onChange={(e) => setFormCapacity(e.target.value)}
+                  className="mt-1.5 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#1b325f] focus:bg-white focus:ring-4 focus:ring-[#1b325f]/15"
+                />
+                {editingRoom && (
+                  <span className="mt-1 block text-[11px] font-normal text-slate-400">
+                    Increasing capacity adds new PCs. Decreasing marks the extra PCs RETIRED
+                    (they stay visible but can't be claimed).
+                  </span>
+                )}
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Description / Location
+                <input
+                  type="text"
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="e.g. Main computer lab, 2nd floor"
+                  className="mt-1.5 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#1b325f] focus:bg-white focus:ring-4 focus:ring-[#1b325f]/15"
+                />
+              </label>
+            </div>
+
+            {formError && (
+              <p role="alert" className="mt-3 text-sm font-medium text-rose-700">
+                {formError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeForm}
+                disabled={formBusy}
+                className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={formBusy}
+                className="cursor-pointer rounded-lg bg-[#2563eb] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {formBusy ? 'Saving…' : editingRoom ? 'Save changes' : 'Create room'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </>

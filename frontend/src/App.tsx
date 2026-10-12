@@ -426,6 +426,7 @@ export default function App() {
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
   const [labRooms, setLabRooms] = useState<LabRoomStatus[]>([]);
+  const [roomsRefreshKey, setRoomsRefreshKey] = useState(0);
 
   useEffect(() => {
     sessionStorage.setItem(LAST_SCREEN_STORAGE_KEY, currentScreen);
@@ -646,7 +647,7 @@ export default function App() {
       ]);
       const [attendanceData, availabilityData, occupancyData] = await Promise.all([
         readApiResponse<{ error?: string; attendance: Array<{ activeSessionId: number; timeOut: string | null }> }>(attendanceResponse),
-        readApiResponse<{ error?: string; occupancies: Array<{ pcNumber: string }> }>(availabilityResponse),
+        readApiResponse<{ error?: string; occupancies: Array<{ pcNumber: string }>; pcs?: Array<{ pcNumber: string; status: string }> }>(availabilityResponse),
         readApiResponse<{ error?: string; occupancy: { id: number; pcNumber: string } | null }>(ownOccupancyResponse),
       ]);
 
@@ -663,6 +664,11 @@ export default function App() {
       setIsClaimedConfirmed(Boolean(ownOccupancy));
 
       const occupied = new Set(availabilityData.occupancies.map((occupancy) => occupancy.pcNumber));
+      const outOfService = new Set(
+        (availabilityData.pcs ?? [])
+          .filter((pc) => pc.status !== 'AVAILABLE')
+          .map((pc) => pc.pcNumber)
+      );
       const capacity = Math.max(0, activeSession.schedule.labRoom.capacity ?? 0);
       setPcStations(Array.from({ length: capacity }, (_, index) => {
         const number = String(index + 1);
@@ -670,7 +676,13 @@ export default function App() {
         const isMine = ownOccupancy?.pcNumber === pcNumber;
         return {
           number,
-          status: isMine ? 'you' : occupied.has(pcNumber) ? 'occupied' : 'free',
+          status: isMine
+            ? 'you'
+            : outOfService.has(pcNumber)
+              ? 'unavailable'
+              : occupied.has(pcNumber)
+                ? 'occupied'
+                : 'free',
         };
       }));
 
@@ -775,7 +787,7 @@ export default function App() {
       active = false;
       window.clearInterval(interval);
     };
-  }, [custodianToken, currentScreen]);
+  }, [custodianToken, currentScreen, roomsRefreshKey]);
 
   const handleAdminLogin = async (schoolId: string, password: string) => {
     await handleRoleLogin('ADMIN', schoolId, password);
@@ -836,7 +848,7 @@ export default function App() {
         ]);
         const [attendanceData, availabilityData, occupancyData] = await Promise.all([
           readApiResponse<{ error?: string; attendance: Array<{ activeSessionId: number; timeOut: string | null }> }>(attendanceResponse),
-          readApiResponse<{ error?: string; occupancies: Array<{ pcNumber: string }> }>(availabilityResponse),
+          readApiResponse<{ error?: string; occupancies: Array<{ pcNumber: string }>; pcs?: Array<{ pcNumber: string; status: string }> }>(availabilityResponse),
           readApiResponse<{ error?: string; occupancy: { id: number; pcNumber: string } | null }>(ownOccupancyResponse),
         ]);
         const responses = [attendanceResponse, availabilityResponse, ownOccupancyResponse];
@@ -849,6 +861,11 @@ export default function App() {
         setStudentOccupancyId(ownOccupancy?.id ?? null);
         setSelectedPc((prev) => (ownOccupancy ? ownOccupancy.pcNumber.replace(/^PC-/, '') : prev));
         const occupied = new Set(availabilityData.occupancies.map((occupancy) => occupancy.pcNumber));
+        const outOfService = new Set(
+          (availabilityData.pcs ?? [])
+            .filter((pc) => pc.status !== 'AVAILABLE')
+            .map((pc) => pc.pcNumber)
+        );
         const capacity = Math.max(0, activeSession.schedule.labRoom.capacity ?? 0);
         setPcStations(Array.from({ length: capacity }, (_, index) => {
           const number = String(index + 1);
@@ -856,7 +873,13 @@ export default function App() {
           const isMine = ownOccupancy?.pcNumber === pcNumber;
           return {
             number,
-            status: isMine ? 'you' : occupied.has(pcNumber) ? 'occupied' : 'free',
+            status: isMine
+              ? 'you'
+              : outOfService.has(pcNumber)
+                ? 'unavailable'
+                : occupied.has(pcNumber)
+                  ? 'occupied'
+                  : 'free',
           };
         }));
         setIsClaimedConfirmed(Boolean(ownOccupancy));
@@ -1441,6 +1464,8 @@ export default function App() {
           <LabStaffUsagePage
             records={mapClassReportsToUsageRecords(classReports)}
             rooms={labRooms}
+            token={custodianToken}
+            onRoomsChanged={() => setRoomsRefreshKey((key) => key + 1)}
             activeTab={currentScreen === 'lab-staff-usage-history' ? 'history' : 'rooms'}
             onTabChange={(tab) =>
               setCurrentScreen(tab === 'history' ? 'lab-staff-usage-history' : 'lab-staff-rooms-module')

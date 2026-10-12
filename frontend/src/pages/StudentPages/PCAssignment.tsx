@@ -106,26 +106,31 @@ export const StudentClaimPCView: React.FC<StudentClaimPCProps> = ({
             )}
             {stations.map((pc) => {
               const isYou = pc.number === selectedPc || pc.status === 'you';
-              const isOccupied = !isYou && pc.status === 'occupied';
+              const isUnavailable = !isYou && pc.status === 'unavailable';
+              const isOccupied = !isYou && !isUnavailable && pc.status === 'occupied';
 
               return (
                 <button
                   key={pc.number}
                   type="button"
-                  disabled={isOccupied || !isTimedIn || busy}
+                  disabled={isOccupied || isUnavailable || !isTimedIn || busy}
                   onClick={() => onSelectPc(pc.number)}
                   title={
                     isYou
                       ? `PC-${pc.number} (Your current station)`
-                      : isOccupied
-                        ? `PC-${pc.number} occupied by ${pc.occupantName}`
-                        : `Switch to PC-${pc.number}`
+                      : isUnavailable
+                        ? `PC-${pc.number} is out of service`
+                        : isOccupied
+                          ? `PC-${pc.number} occupied by ${pc.occupantName}`
+                          : `Switch to PC-${pc.number}`
                   }
                   className={`w-14 h-14 rounded-lg flex flex-col items-center justify-center font-mono tabular-nums transition-all sm:w-16 sm:h-16 ${isYou
                     ? 'bg-blue-50/90 border-2 border-[#1b325f] text-[#1b325f] font-bold cursor-pointer shadow-2xs'
-                    : isOccupied
-                      ? 'bg-rose-100/90 border border-rose-200 text-rose-800 font-semibold cursor-not-allowed'
-                      : 'bg-slate-100/90 border border-slate-200/90 text-slate-700 font-semibold hover:border-slate-400 hover:bg-slate-200/60 cursor-pointer'
+                    : isUnavailable
+                      ? 'bg-slate-200/80 border border-slate-300 text-slate-400 font-semibold cursor-not-allowed opacity-70'
+                      : isOccupied
+                        ? 'bg-rose-100/90 border border-rose-200 text-rose-800 font-semibold cursor-not-allowed'
+                        : 'bg-slate-100/90 border border-slate-200/90 text-slate-700 font-semibold hover:border-slate-400 hover:bg-slate-200/60 cursor-pointer'
                     }`}
                 >
                   <span className="text-base leading-none">{pc.number}</span>
@@ -140,7 +145,7 @@ export const StudentClaimPCView: React.FC<StudentClaimPCProps> = ({
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 text-sm text-slate-400">
-            Red = occupied · Outline = free · Blue = you
+            Red = occupied · Outline = free · Blue = you · Grey = out of service
           </div>
         </section>
 

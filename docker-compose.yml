@@ -1,7 +1,7 @@
 services:
   db:
     image: mysql:8.4
-    command: ["--innodb-buffer-pool-size=128M", "--performance-schema=OFF", "--max-connections=40"]
+    command: [ "--innodb-buffer-pool-size=128M", "--performance-schema=OFF", "--max-connections=40" ]
     mem_limit: 500m
     logging:
       driver: json-file
@@ -17,10 +17,11 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
-      retries: 12
+      retries: 15
+      start_period: 60s
 
   api:
     build: ./backend
