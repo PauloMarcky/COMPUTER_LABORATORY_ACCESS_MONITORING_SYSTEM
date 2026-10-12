@@ -50,8 +50,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    expose:
-      - "80"
+    ports:
+      - "8085:80" # <--- CHANGE THIS
     volumes:
       - caddy_data:/data
       - caddy_config:/config
