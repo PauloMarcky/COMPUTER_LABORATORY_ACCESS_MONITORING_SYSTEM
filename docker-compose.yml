@@ -12,10 +12,10 @@ services:
     environment:
       MYSQL_DATABASE: clams
       MYSQL_USER: clams
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MYSQL_PASSWORD: clamsPassword2026
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data_v2:/var/lib/mysql
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
@@ -35,14 +35,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-      DATABASE_URL: mysql://clams:${DB_PASSWORD_URLENCODED}@db:3306/clams
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (32+ characters)}
-      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in .env}
-      TRUST_PROXY_HOPS: "1"
-      APP_TIME_ZONE: Asia/Manila
 
   caddy:
     build: ./frontend
@@ -57,6 +49,6 @@ services:
       - caddy_config:/config
 
 volumes:
-  db_data:
+  db_data_v2:
   caddy_data:
   caddy_config:
