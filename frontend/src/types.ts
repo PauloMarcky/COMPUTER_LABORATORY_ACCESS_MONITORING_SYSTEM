@@ -24,6 +24,7 @@ export type WireframeScreenId =
   | 'admin-schedule-add-module'
   | 'admin-schedule-roster'
   | 'admin-subjects'
+  | 'admin-terms'
   | 'admin-teacher-workload'
   | 'admin-reports-dashboard'
   | 'admin-students-analytics'

@@ -143,6 +143,14 @@ export const AdminSubNav: React.FC<AdminSubNavProps> = ({ activeScreen, onNaviga
           <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
           User Management
         </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('admin-terms')}
+          className={itemClass(activeScreen === 'admin-terms')}
+        >
+          <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Terms
+        </button>
       </nav>
     </aside>
   );

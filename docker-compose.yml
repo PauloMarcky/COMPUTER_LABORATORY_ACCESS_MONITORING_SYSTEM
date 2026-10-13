@@ -1,54 +1,54 @@
-services:
-  db:
-    image: mysql:8.4
-    command: [ "--innodb-buffer-pool-size=128M", "--performance-schema=OFF", "--max-connections=40" ]
-    mem_limit: 500m
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: clams
-      MYSQL_USER: clams
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
-    volumes:
-      - db_data_v2:/var/lib/mysql
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 60s
+  services:
+    db:
+      image: mysql:8.4
+      command: [ "--innodb-buffer-pool-size=128M", "--performance-schema=OFF", "--max-connections=40" ]
+      mem_limit: 500m
+      logging:
+        driver: json-file
+        options:
+          max-size: "10m"
+          max-file: "3"
+      restart: unless-stopped
+      environment:
+        MYSQL_DATABASE: clams
+        MYSQL_USER: clams
+        MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+        MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+      volumes:
+        - db_data_v2:/var/lib/mysql
+      healthcheck:
+        test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+        interval: 10s
+        timeout: 5s
+        retries: 15
+        start_period: 60s
 
-  api:
-    build: ./backend
-    mem_limit: 700m
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
+    api:
+      build: ./backend
+      mem_limit: 700m
+      logging:
+        driver: json-file
+        options:
+          max-size: "10m"
+          max-file: "3"
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
 
-  caddy:
-    build: ./frontend
-    mem_limit: 128m
-    restart: unless-stopped
-    depends_on:
-      - api
-    expose:
-      - "80"
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
+    caddy:
+      build: ./frontend
+      mem_limit: 128m
+      restart: unless-stopped
+      depends_on:
+        - api
+      expose:
+        - "80"
+      volumes:
+        - caddy_data:/data
+        - caddy_config:/config
 
-volumes:
-  db_data_v2:
-  caddy_data:
-  caddy_config:
+  volumes:
+    db_data_v2:
+    caddy_data:
+    caddy_config:

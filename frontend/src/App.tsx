@@ -39,6 +39,7 @@ import { AdminReportsDashboardView } from './pages/AdminPages/ClassReports';
 import { AdminStudentsAnalyticsView } from './pages/AdminPages/AnalyticsReport';
 import { UserManagement } from './pages/AdminPages/UserManagement';
 import { SubjectManagerView } from './pages/AdminPages/SubjectManager';
+import { TermManagerView } from './pages/AdminPages/TermManager';
 import { ManageRosterView } from './pages/AdminPages/ManageRosterPage';
 import { formatAttendanceTime, getAttendanceStatus } from './utils/attendance-time';
 
@@ -339,6 +340,7 @@ const screenPaths: Record<WireframeScreenId, string> = {
   'admin-schedule-add-module': '/admin/schedules/new',
   'admin-schedule-roster': '/admin/schedules/roster',
   'admin-subjects': '/admin/subjects',
+  'admin-terms': '/admin/terms',
   'admin-teacher-workload': '/admin/instructor-workload',
   'admin-reports-dashboard': '/admin/class-reports',
   'admin-students-analytics': '/admin/analytics',
@@ -1330,7 +1332,8 @@ export default function App() {
     setCurrentScreen('admin-schedule-roster');
   };
 
-  const handleDeleteSchedule = async (id: string) => {
+  const handleDeleteSchedule = async (scheduleId: string, withRecords = false) => {
+    const id = withRecords ? `${scheduleId}?withRecords=true` : scheduleId;
     const response = await fetch(`${API_BASE_URL}/schedules/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -1339,7 +1342,7 @@ export default function App() {
       const result = await readApiResponse<{ error?: string }>(response);
       throw new Error(result.error || 'Unable to delete schedule.');
     }
-    setSchedules((prev) => prev.filter((s) => s.id !== id));
+    setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
     setScheduleError('');
   };
 
@@ -1515,7 +1518,10 @@ export default function App() {
           />
         )}
 
-        {currentScreen === 'admin-subjects' && (
+        {currentScreen === 'admin-terms' && (
+        <TermManagerView token={adminToken} onNavigate={setCurrentScreen} />
+      )}
+      {currentScreen === 'admin-subjects' && (
           <SubjectManagerView token={adminToken} onNavigate={setCurrentScreen} />
         )}
 

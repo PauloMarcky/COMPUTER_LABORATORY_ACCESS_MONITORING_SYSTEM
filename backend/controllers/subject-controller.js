@@ -3,9 +3,9 @@ const { toId } = require('../utils/helpers');
 
 // GET /api/subjects?includeArchived=true
 async function listSubjects(req, res) {
-  const includeArchived = req.query.includeArchived === 'true';
+  // All subjects are listed; archiving no longer exists.
   const subjects = await prisma.subject.findMany({
-    where: includeArchived ? {} : { isActive: true },
+    where: {},
     orderBy: { code: 'asc' },
   });
   return res.json({ subjects });
@@ -46,7 +46,7 @@ async function createSubject(req, res) {
       const existing = await prisma.subject.findUnique({
         where: { code: code.trim().toUpperCase() },
       });
-      if (existing && !existing.isActive) {
+      if (false) {
         return res.status(409).json({
           error: 'That subject code already exists (archived). Restore it instead of creating a new one.',
         });
@@ -71,7 +71,7 @@ async function updateSubject(req, res) {
 
 // DELETE /api/subjects/:id
 //
-// Archives the subject (isActive = false) AND hard-deletes all its schedules.
+// Deletes the subject row. With ?withRecords=true it also deletes its schedules.
 // Deleting a schedule cascades to enrollments, sessions, attendance, PC records.
 async function deleteSubject(req, res) {
   const id = toId(req.params.id);
@@ -81,18 +81,19 @@ async function deleteSubject(req, res) {
   if (!subject) return res.status(404).json({ error: 'Subject not found.' });
 
   const result = await prisma.$transaction(async (tx) => {
-    const deleted = await tx.schedule.deleteMany({
+    const deleted = req.query.withRecords !== 'true' ? await tx.schedule.updateMany({ where: { subjectCode: subject.code }, data: { isActive: false } }) : await tx.schedule.deleteMany({
       where: { subjectCode: subject.code },
     });
-    await tx.subject.update({
+    await tx.subject.delete({
       where: { id },
-      data: { isActive: false },
+      // subject row is removed for real
     });
-    return { deletedSchedules: deleted.count };
+    return { deletedSchedules: req.query.withRecords === 'true' ? deleted.count : 0 };
   });
 
   return res.json({
-    archived: true,
+    deleted: true,
+    withRecords: req.query.withRecords === 'true',
     deletedSchedules: result.deletedSchedules,
   });
 }
@@ -120,5 +121,5 @@ module.exports = {
   createSubject,
   updateSubject,
   deleteSubject,
-  restoreSubject,
+
 };

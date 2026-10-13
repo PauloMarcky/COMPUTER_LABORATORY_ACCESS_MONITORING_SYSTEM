@@ -157,6 +157,7 @@ const ScheduleFormModal: React.FC<ScheduleFormModalProps> = ({
   const [loadingOptions, setLoadingOptions] = useState(true);
 
   const [actionError, setActionError] = useState('');
+  const [showDeleteChoice, setShowDeleteChoice] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -285,14 +286,15 @@ const ScheduleFormModal: React.FC<ScheduleFormModalProps> = ({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (withRecords = false) => {
     if (!isEdit) return;
     setActionError('');
     try {
-      await onDeleteSchedule(editingSchedule.id);
+      await (onDeleteSchedule as (id: string, withRecords?: boolean) => Promise<void>)(editingSchedule.id, withRecords);
       onDeleted('Schedule deleted successfully.');
     } catch (deleteError) {
       setActionError(deleteError instanceof Error ? deleteError.message : 'Unable to delete schedule.');
+      setShowDeleteChoice(false);
     }
   };
 
@@ -487,6 +489,43 @@ const ScheduleFormModal: React.FC<ScheduleFormModalProps> = ({
             </div>
 
             <div>
+              {showDeleteChoice && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0f1a30]/60 px-4 backdrop-blur-sm">
+                  <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl shadow-rose-900/30">
+                    <div className="bg-rose-700 px-6 py-4">
+                      <h2 className="text-lg font-bold text-white">Delete schedule?</h2>
+                    </div>
+                    <div className="space-y-3 px-6 py-5">
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(false)}
+                        className="w-full cursor-pointer rounded-lg border border-slate-300 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                      >
+                        <span className="block text-sm font-semibold text-slate-800">Delete schedule only</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">Keeps attendance records and frees the time slot.</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(true)}
+                        className="w-full cursor-pointer rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-left transition-colors hover:border-rose-400 hover:bg-rose-100"
+                      >
+                        <span className="block text-sm font-semibold text-rose-700">Delete schedule and records</span>
+                        <span className="mt-0.5 block text-xs text-rose-600">Also removes all sessions and attendance.</span>
+                      </button>
+                      {actionError && <p role="alert" className="text-sm font-medium text-rose-700">{actionError}</p>}
+                    </div>
+                    <div className="flex justify-end border-t border-slate-100 px-6 py-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteChoice(false)}
+                        className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <label className="mb-1.5 block text-xs font-semibold text-slate-700">End Time</label>
               <input
                 type="time"
@@ -504,7 +543,7 @@ const ScheduleFormModal: React.FC<ScheduleFormModalProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => void handleDelete()}
+                    onClick={() => setShowDeleteChoice(true)}
                     disabled={isSaving}
                     className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/50 px-3.5 py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-100/70 disabled:opacity-50"
                   >
@@ -586,6 +625,32 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
   const [successNotice, setSuccessNotice] = useState('');
   const [noticeType, setNoticeType] = useState<NoticeType>('success');
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  const [termLabels, setTermLabels] = useState<string[]>([]);
+  const [activeTermLabel, setActiveTermLabel] = useState('');
+  const isPastTerm = Boolean(semFilter && activeTermLabel && semFilter !== activeTermLabel);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTerms = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/terms`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        if (cancelled || !res.ok) return;
+        const list: Array<{ academicYear: string; semester: string; isActive: boolean }> = data.terms || [];
+        const label = (t: { academicYear: string; semester: string }) => `${t.academicYear} ${t.semester}`;
+        setTermLabels(list.map(label));
+        const active = list.find((t) => t.isActive);
+        if (active) {
+          setActiveTermLabel(label(active));
+          setSemFilter(label(active));
+        }
+      } catch {
+        // Terms are optional for this screen; the filter falls back to schedule labels.
+      }
+    };
+    void loadTerms();
+    return () => { cancelled = true; };
+  }, [token]);
 
   const [modalSchedule, setModalSchedule] = useState<ScheduleEntry | null>(null);
 
@@ -593,6 +658,10 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
     setModalSchedule(createDraft(day, startTime));
   };
   const openEdit = (entry: ScheduleEntry) => {
+    if (activeTermLabel && entry.semester && entry.semester !== activeTermLabel) {
+      setDeleteError('Schedules from a past term are read-only. Switch to the active term to edit.');
+      return;
+    }
     setModalSchedule(entry);
   };
   const closeModal = () => setModalSchedule(null);
@@ -708,7 +777,7 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
                   className="cursor-pointer bg-transparent font-bold text-[#1b325f] focus:outline-none"
                 >
                   <option value="">All Semesters</option>
-                  {[...new Set(schedules.map((s) => s.semester))].map((semester) => (
+                  {[...new Set([...termLabels, ...schedules.map((s) => s.semester)])].map((semester) => (
                     <option key={semester} value={semester}>{semester}</option>
                   ))}
                 </select>
@@ -736,6 +805,20 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
             </div>
           </section>
 
+          {isPastTerm && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
+              <span>
+                Viewing <span className="font-semibold">{semFilter}</span>, a past term. Its schedules are read-only.
+              </span>
+              <button
+                type="button"
+                onClick={() => setSemFilter(activeTermLabel)}
+                className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+              >
+                Back to {activeTermLabel}
+              </button>
+            </div>
+          )}
           {(error || deleteError) && (
             <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
               {deleteError || error}

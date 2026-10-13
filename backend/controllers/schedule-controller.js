@@ -79,7 +79,7 @@ async function createSchedule(req, res) {
       const candidates = await tx.schedule.findMany({
         where: {
           dayOfWeek: { in: [DAYS[(DAYS.indexOf(day) + DAYS.length - 1) % DAYS.length], day, DAYS[(DAYS.indexOf(day) + 1) % DAYS.length]] },
-          termId: data.termId,
+          termId: data.termId, isActive: true,
           OR: [{ labRoomId: data.labRoomId }, { instructorId: data.instructorId }],
         },
         select: { scheduleId: true, dayOfWeek: true, termId: true, startTime: true, endTime: true, labRoomId: true, instructorId: true },
@@ -99,7 +99,7 @@ async function createSchedule(req, res) {
 }
 
 async function listSchedules(req, res) {
-  const where = {};
+  const where = { isActive: true };
   if (req.query.labRoomId) where.labRoomId = toId(req.query.labRoomId) || -1;
   if (req.query.dayOfWeek) where.dayOfWeek = String(req.query.dayOfWeek).toUpperCase();
   if (req.query.termId) where.termId = toId(req.query.termId) || -1;
@@ -119,7 +119,7 @@ async function listSchedules(req, res) {
 
 async function listMySchedules(req, res) {
   const enrollments = await prisma.classEnrollment.findMany({
-    where: { studentProfile: { studentId: req.user.id } },
+    where: { studentProfile: { studentId: req.user.id }, schedule: { isActive: true } },
     include: { schedule: { include } },
   });
   return res.json({ schedules: enrollments.map((e) => toApiSchedule(e.schedule)) });
@@ -207,7 +207,7 @@ async function updateSchedule(req, res) {
         where: {
           scheduleId: { not: id },
           dayOfWeek: { in: [DAYS[(DAYS.indexOf(candidate.dayOfWeek) + DAYS.length - 1) % DAYS.length], candidate.dayOfWeek, DAYS[(DAYS.indexOf(candidate.dayOfWeek) + 1) % DAYS.length]] },
-          termId: candidate.termId,
+          termId: candidate.termId, isActive: true,
           OR: [{ labRoomId: candidate.labRoomId }, { instructorId: candidate.instructorId }],
         },
         select: { scheduleId: true, dayOfWeek: true, termId: true, startTime: true, endTime: true, labRoomId: true, instructorId: true },
@@ -230,7 +230,10 @@ async function deleteSchedule(req, res) {
   const id = toId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid id.' });
   const sessionCount = await prisma.activeSession.count({ where: { scheduleId: id } });
-  if (sessionCount > 0) return res.status(409).json({ error: 'This schedule has recorded sessions and cannot be deleted.' });
+  if (sessionCount > 0 && req.query.withRecords !== 'true') {
+    await prisma.schedule.update({ where: { scheduleId: id }, data: { isActive: false } });
+    return res.status(204).send();
+  }
   await prisma.schedule.delete({ where: { scheduleId: id } });
   return res.status(204).send();
 }
