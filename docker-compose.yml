@@ -12,7 +12,7 @@ services:
     environment:
       MYSQL_DATABASE: clams
       MYSQL_USER: clams
-      MYSQL_PASSWORD: clamsPassword2026
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
     volumes:
       - db_data_v2:/var/lib/mysql
@@ -42,8 +42,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "8085:80" # <--- CHANGE THIS
+    expose:
+      - "80"
     volumes:
       - caddy_data:/data
       - caddy_config:/config
