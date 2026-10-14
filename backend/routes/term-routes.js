@@ -7,5 +7,6 @@ const router = express.Router();
 router.get('/', authenticate, a(c.listTerms));
 router.post('/', authenticate, authorize('ADMIN'), a(c.createTerm));
 router.patch('/:id/activate', authenticate, authorize('ADMIN'), a(c.activateTerm));
+router.delete('/:id', authenticate, authorize('ADMIN'), a(c.deleteTerm));
 
 module.exports = router;

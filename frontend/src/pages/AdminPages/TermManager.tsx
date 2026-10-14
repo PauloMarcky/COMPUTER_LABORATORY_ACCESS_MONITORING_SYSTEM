@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, X, CheckCircle2 } from 'lucide-react';
+import { Plus, X, CheckCircle2, Trash2 } from 'lucide-react';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { AdminSubNav } from '../../components/AdminComponents/AdminSubNav';
 import { API_BASE_URL, readApiResponse } from '../../api';
@@ -39,6 +39,8 @@ export const TermManagerView: React.FC<Props> = ({ token, onNavigate }) => {
   const [saving, setSaving] = useState(false);
   const [activatingId, setActivatingId] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<Term | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const sourceTerm = terms.find((t) => t.isActive) ?? terms[0] ?? null;
@@ -124,6 +126,30 @@ export const TermManagerView: React.FC<Props> = ({ token, onNavigate }) => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/terms/${pendingDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 204) {
+        setNotice(`${pendingDelete.academicYear} ${pendingDelete.semester} deleted.`);
+        setPendingDelete(null);
+        await load();
+      } else {
+        const data = await readApiResponse<{ error?: string }>(res);
+        setError(data.error || 'Unable to delete term.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to delete term.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const day = (value: string) => (value ? value.slice(0, 10) : '—');
   const inputClass =
     'w-full rounded-lg border border-slate-300 bg-slate-50/60 px-3.5 py-3 text-sm text-slate-800 outline-none transition focus:border-[#1b325f] focus:bg-white focus:ring-4 focus:ring-[#1b325f]/15';
@@ -152,7 +178,7 @@ export const TermManagerView: React.FC<Props> = ({ token, onNavigate }) => {
             </button>
           </div>
 
-          {error && !showForm && (
+          {error && !showForm && !pendingDelete && (
             <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
               {error}
             </p>
@@ -198,15 +224,25 @@ export const TermManagerView: React.FC<Props> = ({ token, onNavigate }) => {
                         )}
                       </td>
                       <td className="py-4 px-5 text-right">
-                        {!t.isActive && (
+                        <div className="inline-flex items-center gap-2">
+                          {!t.isActive && (
+                            <button
+                              onClick={() => void handleActivate(t)}
+                              disabled={activatingId === t.id}
+                              className="rounded-md border border-[#1b325f]/20 bg-[#1b325f]/5 px-3 py-1.5 text-xs font-semibold text-[#1b325f] transition-colors hover:bg-[#1b325f]/10 disabled:opacity-50"
+                            >
+                              {activatingId === t.id ? 'Activating...' : 'Make active'}
+                            </button>
+                          )}
                           <button
-                            onClick={() => void handleActivate(t)}
-                            disabled={activatingId === t.id}
-                            className="rounded-md border border-[#1b325f]/20 bg-[#1b325f]/5 px-3 py-1.5 text-xs font-semibold text-[#1b325f] transition-colors hover:bg-[#1b325f]/10 disabled:opacity-50"
+                            onClick={() => { setError(''); setPendingDelete(t); }}
+                            disabled={t.isActive || (deleting && pendingDelete?.id === t.id)}
+                            className="rounded-md p-2 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            title={t.isActive ? 'Activate a different term first' : 'Delete term'}
                           >
-                            {activatingId === t.id ? 'Activating...' : 'Make active'}
+                            <Trash2 className="h-4 w-4" />
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -361,6 +397,54 @@ export const TermManagerView: React.FC<Props> = ({ token, onNavigate }) => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f1a30]/70 px-4 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="animate-pop-in w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl shadow-rose-900/20"
+          >
+            <div className="bg-rose-700 px-6 py-4">
+              <h2 className="text-lg font-bold text-white">Delete term?</h2>
+            </div>
+            <div className="space-y-4 px-6 py-6">
+              <p className="text-sm text-slate-600">
+                Delete{' '}
+                <span className="font-bold text-slate-800">
+                  {pendingDelete.academicYear} {pendingDelete.semester}
+                </span>
+                ? This cannot be undone.
+              </p>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Only terms with no schedules can be deleted. Past attendance records are safe — they belong to schedules, not to the term itself.
+              </p>
+              {error && (
+                <p role="alert" className="text-sm font-medium text-rose-700">{error}</p>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => { setPendingDelete(null); setError(''); }}
+                disabled={deleting}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={deleting}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleting ? 'Deleting...' : 'Delete term'}
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </div>

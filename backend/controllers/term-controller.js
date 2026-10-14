@@ -88,4 +88,31 @@ async function activateTerm(req, res) {
   return res.json({ activated: true });
 }
 
-module.exports = { listTerms, createTerm, activateTerm };
+// DELETE /api/terms/:id
+// Refuses if the term is active or has schedules — protects history and
+// prevents orphaned schedule records.
+async function deleteTerm(req, res) {
+  const id = toId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id.' });
+
+  const term = await prisma.term.findUnique({ where: { id } });
+  if (!term) return res.status(404).json({ error: 'Term not found.' });
+
+  if (term.isActive) {
+    return res.status(409).json({
+      error: 'This term is active. Activate a different term first, then delete this one.',
+    });
+  }
+
+  const scheduleCount = await prisma.schedule.count({ where: { termId: id } });
+  if (scheduleCount > 0) {
+    return res.status(409).json({
+      error: `Cannot delete: ${scheduleCount} schedule${scheduleCount === 1 ? '' : 's'} reference this term. Remove those schedules first.`,
+    });
+  }
+
+  await prisma.term.delete({ where: { id } });
+  return res.status(204).send();
+}
+
+module.exports = { listTerms, createTerm, activateTerm, deleteTerm };

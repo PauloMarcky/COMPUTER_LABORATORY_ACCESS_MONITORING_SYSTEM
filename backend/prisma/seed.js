@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs'); // change to 'bcrypt' if that's what your auth code uses
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
@@ -74,55 +74,7 @@ async function main() {
     console.log('• Lab room already exists:', labRoom.roomName);
   }
 
-  // ---- 5. Terms (this system only supports 1st and 2nd semester) ----
-  const termData = [
-    {
-      academicYear: '2024-2025',
-      semester: '1ST',
-      startDate: new Date('2024-08-01'),
-      endDate: new Date('2024-12-15'),
-      isActive: true,
-    },
-    {
-      academicYear: '2024-2025',
-      semester: '2ND',
-      startDate: new Date('2025-01-06'),
-      endDate: new Date('2025-05-31'),
-      isActive: false,
-    },
-  ];
-  for (const t of termData) {
-    const existing = await prisma.term.findFirst({
-      where: { academicYear: t.academicYear, semester: t.semester },
-    });
-    if (existing) {
-      console.log('Term already exists:', existing.academicYear, existing.semester);
-    } else {
-      const created = await prisma.term.create({ data: t });
-      console.log('Term seeded:', created.academicYear, created.semester);
-    }
-  }
-
-  // ---- 5b. Legacy single-term check (kept as a no-op if already seeded) ----
-  let term = await prisma.term.findFirst({
-    where: { academicYear: '2024-2025', semester: '1ST' },
-  });
-  if (!term) {
-    term = await prisma.term.create({
-      data: {
-        academicYear: '2024-2025',
-        semester: '1ST',
-        startDate: new Date('2024-08-01'),
-        endDate: new Date('2024-12-15'),
-        isActive: true,
-      },
-    });
-    console.log('✔ Term seeded:', term.academicYear, term.semester);
-  } else {
-    console.log('• Term already exists:', term.academicYear, term.semester);
-  }
-
-  // ---- 6. Subjects ----
+  // ---- 5. Subjects ----
   const subjectData = [
     { code: 'IT101', title: 'Introduction to Computing', yearLevel: 1 },
     { code: 'IT102', title: 'Computer Programming 1', yearLevel: 1 },
@@ -138,7 +90,7 @@ async function main() {
   }
   console.log('✔ Subjects seeded:', subjectData.length);
 
-  // ---- 3b. Custodian ----
+  // ---- 6. Custodian ----
   const custodianUser = await prisma.user.upsert({
     where: { schoolId: 'CUST-001' },
     update: {},
