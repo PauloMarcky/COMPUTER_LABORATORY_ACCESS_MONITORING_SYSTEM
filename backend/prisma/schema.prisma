@@ -196,6 +196,8 @@ model PcIssueReport {
   studentProfile StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
   handledBy      User?          @relation("CustodianHandledReports", fields: [handledById], references: [id], onDelete: SetNull)
 
+  images         PcIssueReportImage[]
+
   @@map("pc_issue_report")
 }
 
@@ -239,6 +241,19 @@ model Subject {
   instructorSubjects InstructorSubject[]
 
   @@map("subjects")
+}
+
+model PcIssueReportImage {
+  id              Int      @id @default(autoincrement()) @map("pc_issue_report_image_id")
+  pcIssueReportId Int      @map("pc_issue_report_id")
+  imageUrl        String   @map("image_url") @db.VarChar(500)
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  pcIssueReport PcIssueReport @relation(fields: [pcIssueReportId], references: [id], onDelete: Cascade)
+
+  @@index([pcIssueReportId])
+  @@map("pc_issue_report_images")
 }
 
 model InstructorSubject {

@@ -1,5 +1,6 @@
 const prisma = require('../config/db');
 const { toId, getStudentProfile } = require('../utils/helpers');
+const { uploadImage } = require('../services/r2-client');
 
 const { STATUSES, canTransitionIssueStatus } = require('../utils/pc-issue-status');
 const CATEGORIES = ['Mouse / Keyboard', 'Monitor', 'No Power', 'No Network', 'Software', 'Other'];
@@ -15,6 +16,7 @@ const include = {
   },
   activeSession: { include: { schedule: { include: { labRoom: true } } } },
   handledBy: { select: { id: true, schoolId: true } },
+  images: { orderBy: { sortOrder: 'asc' } },
 };
 
 async function reportIssue(req, res) {
@@ -33,6 +35,22 @@ async function reportIssue(req, res) {
   const attended = await prisma.attendanceLog.findFirst({ where: { studentProfileId: student.id, activeSessionId } });
   if (!attended) return res.status(403).json({ error: 'You did not attend this session.' });
 
+  const files = Array.isArray(req.files) ? req.files : [];
+  let uploadedImages = [];
+  try {
+    uploadedImages = await Promise.all(
+      files.map((file, index) =>
+        uploadImage(file.buffer, file.mimetype).then(({ url }) => ({
+          imageUrl: url,
+          sortOrder: index,
+        })),
+      ),
+    );
+  } catch (uploadError) {
+    console.error('Image upload failed:', uploadError.message);
+    return res.status(502).json({ error: 'Unable to upload one or more images. Please try again.' });
+  }
+
   const report = await prisma.pcIssueReport.create({
     data: {
       activeSessionId,
@@ -40,6 +58,7 @@ async function reportIssue(req, res) {
       pcNumber: String(pcNumber).trim(),
       category: category || 'Other',
       issueDescription: issueDescription.trim(),
+      images: uploadedImages.length > 0 ? { create: uploadedImages } : undefined,
     },
     include,
   });
