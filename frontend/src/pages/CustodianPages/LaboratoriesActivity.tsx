@@ -8,9 +8,10 @@ import type { LabRoomStatus, LabUsageRecord, WireframeScreenId } from '../../typ
 interface LabStaffRecordsProps {
   records: LabUsageRecord[];
   onNavigate: (screen: WireframeScreenId) => void;
+  onLogout: () => void;
 }
 
-export const LabStaffRecordsView: React.FC<LabStaffRecordsProps> = ({ records, onNavigate }) => {
+export const LabStaffRecordsView: React.FC<LabStaffRecordsProps> = ({ records, onNavigate, onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [labFilter, setLabFilter] = useState('All Laboratories');
   const [ayFilter, setAyFilter] = useState('');
@@ -155,10 +156,10 @@ export const LabStaffRecordsView: React.FC<LabStaffRecordsProps> = ({ records, o
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <LabStaffSubNav activeScreen="lab-staff-records-module" onNavigate={onNavigate} />
+        <LabStaffSubNav activeScreen="lab-staff-records-module" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           <div className="rounded-2xl border border-[#1b325f]/15 bg-gradient-to-r from-[#1b325f]/[0.04] to-transparent px-6 py-5 shadow-sm">
@@ -367,9 +368,10 @@ export const LabStaffRecordsView: React.FC<LabStaffRecordsProps> = ({ records, o
 interface LabStaffRoomsProps {
   rooms: LabRoomStatus[];
   onNavigate: (screen: WireframeScreenId) => void;
+  onLogout: () => void;
 }
 
-export const LabStaffRoomsView: React.FC<LabStaffRoomsProps> = ({ rooms, onNavigate }) => {
+export const LabStaffRoomsView: React.FC<LabStaffRoomsProps> = ({ rooms, onNavigate, onLogout }) => {
   const [statusFilter, setStatusFilter] = useState<'IN USE' | 'ALL'>('IN USE');
 
   const inUseRooms = rooms.filter((r) => r.status === 'IN USE');
@@ -379,10 +381,10 @@ export const LabStaffRoomsView: React.FC<LabStaffRoomsProps> = ({ rooms, onNavig
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <LabStaffSubNav activeScreen="lab-staff-rooms-module" onNavigate={onNavigate} />
+        <LabStaffSubNav activeScreen="lab-staff-rooms-module" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           <div className="rounded-2xl border border-[#1b325f]/15 bg-gradient-to-r from-[#1b325f]/[0.04] to-transparent px-6 py-5 shadow-sm">

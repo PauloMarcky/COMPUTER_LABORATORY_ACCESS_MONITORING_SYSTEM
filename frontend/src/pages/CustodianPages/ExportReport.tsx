@@ -9,6 +9,7 @@ interface LabStaffExportProps {
   reports: PCIssueReport[];
   onSaveCustodianReport: (reportId: string, custodianReport: string) => Promise<void>;
   onNavigate: (screen: WireframeScreenId) => void;
+  onLogout: () => void;
 }
 
 type NoticeType = 'success' | 'error';
@@ -17,6 +18,7 @@ export const LabStaffReportExportView: React.FC<LabStaffExportProps> = ({
   reports,
   onSaveCustodianReport,
   onNavigate,
+  onLogout,
 }) => {
   const [reportDrafts, setReportDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -117,10 +119,10 @@ export const LabStaffReportExportView: React.FC<LabStaffExportProps> = ({
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <LabStaffSubNav activeScreen="lab-staff-report-export" onNavigate={onNavigate} />
+        <LabStaffSubNav activeScreen="lab-staff-report-export" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#1b325f]/15 bg-gradient-to-r from-[#1b325f]/[0.04] to-transparent px-6 py-5 shadow-sm no-print">

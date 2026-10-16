@@ -16,6 +16,7 @@ interface Props {
   activeTab: 'rooms' | 'history';
   onTabChange: (tab: 'rooms' | 'history') => void;
   onNavigate: (screen: WireframeScreenId) => void;
+  onLogout: () => void;
   token?: string;
   onRoomsChanged?: () => void;
 }
@@ -57,16 +58,17 @@ export const LabStaffUsagePage: React.FC<Props> = ({
   activeTab,
   onTabChange,
   onNavigate,
+  onLogout,
   token,
   onRoomsChanged,
 }) => {
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7] print:min-h-0 print:bg-white">
       <style>{'@page { size: A4; margin: 12mm; }'}</style>
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout print:block">
-        <LabStaffSubNav activeScreen="lab-staff-usage-history" onNavigate={onNavigate} />
+        <LabStaffSubNav activeScreen="lab-staff-usage-history" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6 print:hidden">
           {/* Header + tabs */}

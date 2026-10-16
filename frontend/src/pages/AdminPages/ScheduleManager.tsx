@@ -603,6 +603,7 @@ interface AdminScheduleModuleProps {
   isLoading: boolean;
   error: string;
   onNavigate: (screen: WireframeScreenId) => void;
+  onLogout: () => void;
 }
 
 export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
@@ -617,6 +618,7 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
   isLoading,
   error,
   onNavigate,
+  onLogout,
 }) => {
   const [roomFilter, setRoomFilter] = useState('All Rooms');
   const [semFilter, setSemFilter] = useState('');
@@ -741,10 +743,10 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <AdminSubNav activeScreen="admin-schedule-module" onNavigate={onNavigate} />
+        <AdminSubNav activeScreen="admin-schedule-module" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           {/* Filter + actions bar — navy tinted */}

@@ -7,6 +7,7 @@ interface ClamsHeaderProps {
   onNavigate: (screen: WireframeScreenId) => void;
   statusLabel?: string;
   onLogout?: () => void | Promise<void>;
+  showLogout?: boolean;
   logoutTitle?: string;
   logoutMessage?: string;
 }
@@ -15,6 +16,7 @@ export const ClamsHeader: React.FC<ClamsHeaderProps> = ({
   onNavigate,
   statusLabel = 'Computer Laboratory System',
   onLogout,
+  showLogout = true,
   logoutTitle = 'Log out?',
   logoutMessage = 'You will return to role selection.',
 }) => {
@@ -34,7 +36,7 @@ export const ClamsHeader: React.FC<ClamsHeaderProps> = ({
   };
 
   return (
-    <header className="bg-[#1b325f] text-white px-6 py-3.5 border-b border-[#142547] no-print">
+    <header className="sticky top-0 z-40 bg-[#1b325f] text-white px-3 py-3 sm:px-6 sm:py-3.5 border-b border-[#142547] no-print">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Zone 1: Brand mark */}
         <div className="flex items-center gap-3 text-left">
@@ -58,8 +60,8 @@ export const ClamsHeader: React.FC<ClamsHeaderProps> = ({
           <button
             type="button"
             onClick={handleLogout}
-            className=" flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-600 border border-white/10 text-xs text-slate-100 whitespace-nowrapinline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-200 hover:text-white hover:bg-amber-700 transition-colors whitespace-nowrap"
-            title="Switch Access Level"
+            className={`${showLogout ? '' : 'md:hidden '}inline-flex items-center gap-2 rounded-md bg-amber-600 border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700`}
+            title="Log Out"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Log Out</span>

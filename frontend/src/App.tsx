@@ -1148,6 +1148,18 @@ export default function App() {
     setCurrentScreen('login-portal');
   };
 
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('clams.adminToken');
+    setAdminToken('');
+    setCurrentScreen('login-portal');
+  };
+
+  const handleCustodianLogout = () => {
+    sessionStorage.removeItem('clams.custodianToken');
+    setCustodianToken('');
+    setCurrentScreen('login-portal');
+  };
+
   const handleBackToInstructorScheduleSelection = () => {
     setAttendance([]);
     setActiveInstructorSchedule(null);
@@ -1452,6 +1464,7 @@ export default function App() {
             pcIssueReports={pcIssueReports}
             onUpdatePcIssueStatus={handleUpdatePcIssueStatus}
             onNavigate={setCurrentScreen}
+            onLogout={handleCustodianLogout}
           />
         )}
 
@@ -1460,6 +1473,7 @@ export default function App() {
             reports={pcIssueReports}
             onSaveCustodianReport={handleSavePcIssueReport}
             onNavigate={setCurrentScreen}
+            onLogout={handleCustodianLogout}
           />
         )}
 
@@ -1474,6 +1488,7 @@ export default function App() {
               setCurrentScreen(tab === 'history' ? 'lab-staff-usage-history' : 'lab-staff-rooms-module')
             }
             onNavigate={setCurrentScreen}
+            onLogout={handleCustodianLogout}
           />
         )}
 
@@ -1490,6 +1505,7 @@ export default function App() {
             isLoading={isLoadingSchedules}
             error={scheduleError}
             onNavigate={setCurrentScreen}
+            onLogout={handleAdminLogout}
           />
         )}
 
@@ -1497,6 +1513,7 @@ export default function App() {
           <AdminTeacherWorkloadView
             token={adminToken}
             onNavigate={setCurrentScreen}
+            onLogout={handleAdminLogout}
           />
         )}
 
@@ -1504,25 +1521,27 @@ export default function App() {
           <AdminReportsDashboardView
             reports={classReports}
             onNavigate={setCurrentScreen}
+            onLogout={handleAdminLogout}
           />
         )}
 
         {currentScreen === 'admin-students-analytics' && (
-          <AdminStudentsAnalyticsView token={adminToken} onNavigate={setCurrentScreen} />
+          <AdminStudentsAnalyticsView token={adminToken} onNavigate={setCurrentScreen} onLogout={handleAdminLogout} />
         )}
 
         {currentScreen === 'admin-user-management' && (
           <UserManagement
             adminToken={adminToken}
             onNavigate={setCurrentScreen}
+            onLogout={handleAdminLogout}
           />
         )}
 
         {currentScreen === 'admin-terms' && (
-        <TermManagerView token={adminToken} onNavigate={setCurrentScreen} />
+        <TermManagerView token={adminToken} onNavigate={setCurrentScreen} onLogout={handleAdminLogout} />
       )}
       {currentScreen === 'admin-subjects' && (
-          <SubjectManagerView token={adminToken} onNavigate={setCurrentScreen} />
+          <SubjectManagerView token={adminToken} onNavigate={setCurrentScreen} onLogout={handleAdminLogout} />
         )}
 
         {currentScreen === 'admin-schedule-roster' && (
@@ -1530,6 +1549,7 @@ export default function App() {
             schedule={rosterSchedule}
             token={adminToken}
             onNavigate={setCurrentScreen}
+            onLogout={handleAdminLogout}
           />
         )}
       </div>

@@ -14,6 +14,7 @@ interface LabStaffReportDetailProps {
   pcIssueReports: PCIssueReport[];
   onUpdatePcIssueStatus: (reportId: string, status: PCIssueStatus) => Promise<void>;
   onNavigate: (screen: WireframeScreenId) => void;
+  onLogout: () => void;
 }
 
 type NoticeType = 'success' | 'error' | 'delete';
@@ -27,6 +28,7 @@ export const LabStaffReportDetailView: React.FC<LabStaffReportDetailProps> = ({
   pcIssueReports,
   onUpdatePcIssueStatus,
   onNavigate,
+  onLogout,
 }) => {
   const [remarks, setRemarks] = useState(selectedReport?.remarks || '');
   const [busy, setBusy] = useState(false);
@@ -70,9 +72,9 @@ export const LabStaffReportDetailView: React.FC<LabStaffReportDetailProps> = ({
   if (!selectedReport) {
     return (
       <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-        <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+        <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
         <div className="clams-layout">
-          <LabStaffSubNav activeScreen="lab-staff-report-detail" onNavigate={onNavigate} />
+          <LabStaffSubNav activeScreen="lab-staff-report-detail" onNavigate={onNavigate} onLogout={onLogout} />
           <main className="space-y-6">
             <p className="rounded-lg border border-slate-200 bg-white px-5 py-6 text-sm text-slate-500 shadow-sm">
               No report selected.
@@ -93,10 +95,10 @@ export const LabStaffReportDetailView: React.FC<LabStaffReportDetailProps> = ({
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <LabStaffSubNav activeScreen="lab-staff-report-detail" onNavigate={onNavigate} />
+        <LabStaffSubNav activeScreen="lab-staff-report-detail" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           {/* Header */}
