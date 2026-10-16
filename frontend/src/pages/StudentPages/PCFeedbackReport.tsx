@@ -7,7 +7,11 @@ interface StudentReportIssueProps {
   selectedPc: string;
   reports: PCIssueReport[];
   canSubmitIssue: boolean;
-  onSubmitIssue: (category: PCIssueReport['category'], description: string) => Promise<void>;
+  onSubmitIssue: (
+    category: PCIssueReport['category'],
+    description: string,
+    images?: File[],
+  ) => Promise<void>;
   onNavigate: (screen: WireframeScreenId) => void;
   onLogout?: () => void | Promise<void>;
 }
@@ -20,6 +24,31 @@ const ISSUE_CATEGORIES: PCIssueReport['category'][] = [
   'Software',
   'Other',
 ];
+
+async function compressImage(file: File): Promise<File> {
+  const MAX_DIM = 1600;
+  const QUALITY = 0.85;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', QUALITY),
+    );
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch {
+    return file;
+  }
+}
 
 export const StudentReportIssueView: React.FC<StudentReportIssueProps> = ({
   selectedPc,
@@ -34,6 +63,38 @@ export const StudentReportIssueView: React.FC<StudentReportIssueProps> = ({
   const [description, setDescription] = useState('');
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [images, setImages] = useState<{ file: File; previewUrl: string }[]>([]);
+  const [compressing, setCompressing] = useState(false);
+
+  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    const remaining = 3 - images.length;
+    const toAdd = files.slice(0, remaining);
+    setCompressing(true);
+    try {
+      const processed = await Promise.all(
+        toAdd.map(async (file) => {
+          const compressed = await compressImage(file);
+          return { file: compressed, previewUrl: URL.createObjectURL(compressed) };
+        }),
+      );
+      setImages((prev) => [...prev, ...processed]);
+      setSubmittedSuccess(false);
+    } finally {
+      setCompressing(false);
+      event.target.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => {
+      const next = [...prev];
+      URL.revokeObjectURL(next[index].previewUrl);
+      next.splice(index, 1);
+      return next;
+    });
+  };
   const [error, setError] = useState('');
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -44,7 +105,9 @@ export const StudentReportIssueView: React.FC<StudentReportIssueProps> = ({
     setSubmitting(true);
     setError('');
     try {
-      await onSubmitIssue(selectedCategory, trimmedDescription);
+      await onSubmitIssue(selectedCategory, trimmedDescription, images.map((img) => img.file));
+      images.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      setImages([]);
       setSubmittedSuccess(true);
       setDescription('');
     } catch (e) {
@@ -133,11 +196,50 @@ export const StudentReportIssueView: React.FC<StudentReportIssueProps> = ({
 
           <button
             type="submit"
-            disabled={!selectedPc || !description.trim() || submitting}
+            disabled={!selectedPc || !description.trim() || submitting || compressing}
             className="w-full py-3.5 px-6 rounded-lg bg-[#1b325f] hover:bg-[#142547] text-white font-semibold text-sm transition-colors cursor-pointer shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? 'Submitting...' : 'Submit Report'}
           </button>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">
+              Photos{' '}
+              <span className="text-slate-400 font-normal">(optional, up to 3)</span>
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFilesSelected}
+              disabled={images.length >= 3 || compressing || submitting}
+              className="block w-full text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-slate-200 file:bg-slate-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-100 disabled:opacity-50"
+            />
+            {compressing && (
+              <p className="mt-2 text-xs text-slate-500">Compressing...</p>
+            )}
+            {images.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-3">
+                {images.map((image, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={image.previewUrl}
+                      alt={`Preview ${index + 1}`}
+                      className="h-24 w-24 rounded-lg border border-slate-200 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -right-2 -top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-rose-600 text-xs font-bold text-white shadow-md hover:bg-rose-700"
+                      aria-label="Remove photo"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {error && <p className="text-sm text-rose-700">{error}</p>}
 

@@ -187,6 +187,25 @@ export const LabStaffReportExportView: React.FC<LabStaffExportProps> = ({
                       </div>
                     </dl>
 
+                    {report.imageUrls && report.imageUrls.length > 0 && (
+                      <div className="border-t border-slate-100 px-6 py-4">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Photos from student
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {report.imageUrls.map((url, idx) => (
+                            <a key={idx} href={url} target="_blank" rel="noreferrer" className="block">
+                              <img
+                                src={url}
+                                alt={`Photo ${idx + 1}`}
+                                className="h-20 w-20 rounded-lg border border-slate-200 object-cover transition hover:ring-2 hover:ring-[#1b325f]/40"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="border-t border-slate-100 px-6 py-5">
                       <label
                         htmlFor={`custodian-report-${report.id}`}

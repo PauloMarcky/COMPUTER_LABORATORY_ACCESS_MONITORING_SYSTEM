@@ -81,6 +81,7 @@ export interface PCIssueReport {
   status: PCIssueStatus;
   custodianReport?: string;
   resolvedAt?: string;
+  imageUrls?: string[];
 }
 
 export interface LabUsageRecord {

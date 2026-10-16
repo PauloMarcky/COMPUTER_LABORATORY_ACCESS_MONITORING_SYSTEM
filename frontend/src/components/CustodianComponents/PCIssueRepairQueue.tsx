@@ -67,6 +67,19 @@ export const PCIssueRepairQueue: React.FC<PCIssueRepairQueueProps> = ({
                   </div>
                   <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{report.description}</p>
                   <p className="mt-2 text-[11px] text-slate-400">Reported {report.submittedAt}</p>
+                  {report.imageUrls && report.imageUrls.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {report.imageUrls.map((url, idx) => (
+                        <a key={idx} href={url} target="_blank" rel="noreferrer" className="block">
+                          <img
+                            src={url}
+                            alt={`Photo ${idx + 1}`}
+                            className="h-16 w-16 rounded-md border border-slate-200 object-cover transition hover:ring-2 hover:ring-[#1b325f]/40"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
                   {report.status === 'PENDING' && (

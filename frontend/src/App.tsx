@@ -136,6 +136,7 @@ const mapApiPcIssue = (report: ApiPcIssue): PCIssueReport => ({
   submittedAt: new Date(report.reportedAt).toLocaleString(),
   status: normalizePcIssueStatus(report.status),
   custodianReport: report.staffNotes || undefined,
+  imageUrls: report.images?.map((img: { imageUrl: string }) => img.imageUrl) || [],
 });
 
 const mapClassReportsToUsageRecords = (reports: ClassReportSubmission[]): LabUsageRecord[] =>
@@ -1253,18 +1254,21 @@ export default function App() {
 
   const handleSubmitPcIssue = async (
     category: PCIssueReport['category'],
-    description: string
+    description: string,
+    images: File[] = []
   ): Promise<void> => {
     if (!activeStudentSessionId || !studentToken || !isClaimedConfirmed) throw new Error('Claim a PC in an active session first.');
+    const formData = new FormData();
+    formData.append('activeSessionId', String(activeStudentSessionId));
+    formData.append('pcNumber', `PC-${selectedPc}`);
+    formData.append('category', category);
+    formData.append('issueDescription', description);
+    images.slice(0, 3).forEach((file) => formData.append('images', file));
+
     const response = await fetch(`${API_BASE_URL}/pc-issues`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${studentToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        activeSessionId: Number(activeStudentSessionId),
-        pcNumber: `PC-${selectedPc}`,
-        category,
-        issueDescription: description,
-      }),
+      headers: { Authorization: `Bearer ${studentToken}` },
+      body: formData,
     });
     const result = await readApiResponse<{ error?: string; report: ApiPcIssue }>(response);
     if (!response.ok) throw new Error(result.error || 'Unable to submit issue report.');
