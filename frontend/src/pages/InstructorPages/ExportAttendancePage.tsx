@@ -1,15 +1,16 @@
 import { ClipboardList, MonitorCheck } from 'lucide-react';
 import { InstructorAttendanceExportView } from '../../components/InstructorComponents/InstructorAttendanceExportView';
-import type { AttendanceEntry, WireframeScreenId } from '../../types';
+import type { AttendanceEntry, ScheduleEntry, WireframeScreenId } from '../../types';
 
 interface ExportAttendancePageProps {
+  schedule?: ScheduleEntry | null;
   attendance: AttendanceEntry[];
   onNavigate: (screen: WireframeScreenId) => void;
   onBackToSchedule: () => void;
 }
 
-export const ExportAttendancePage = ({ attendance, onNavigate, onBackToSchedule }: ExportAttendancePageProps) => {
-  const assignedPcCount = attendance.filter((entry) => entry.pcNumber !== 'None').length;
+export const ExportAttendancePage = ({ attendance, schedule = null, onNavigate, onBackToSchedule }: ExportAttendancePageProps) => {
+  const assignedPcCount = attendance.filter((entry) => entry.pcNumber !== 'None' || (entry.pcHistory?.length ?? 0) > 0).length;
 
   return (
     <main className="min-h-screen bg-[#edf1f5]">
@@ -51,7 +52,7 @@ export const ExportAttendancePage = ({ attendance, onNavigate, onBackToSchedule 
       </header>
 
       <section className="px-4 py-6 sm:py-9">
-        <InstructorAttendanceExportView attendance={attendance} onNavigate={onNavigate} onBackToSchedule={onBackToSchedule} />
+        <InstructorAttendanceExportView schedule={schedule} attendance={attendance} onNavigate={onNavigate} onBackToSchedule={onBackToSchedule} />
       </section>
     </main>
   );

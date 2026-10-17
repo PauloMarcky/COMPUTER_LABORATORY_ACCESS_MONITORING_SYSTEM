@@ -169,7 +169,13 @@ export const InstructorAttendanceView: React.FC<InstructorAttendanceProps> = ({
                         {item.name}
                       </td>
                       <td className="py-3.5 px-3 font-mono tabular-nums text-slate-600 whitespace-nowrap">
-                        {item.pcNumber}
+                        <span
+                          title={item.pcHistory?.map((h) => `${h.pcNumber}: ${h.claimedAt}${h.releasedAt ? ` – ${h.releasedAt}` : ' – now'}`).join('\n')}
+                        >
+                          {item.pcHistory && item.pcHistory.length > 1
+                            ? item.pcHistory.map((h) => h.pcNumber).join(' → ')
+                            : item.pcNumber}
+                        </span>
                       </td>
                       <td className="py-3.5 pl-3 text-right whitespace-nowrap">
                         <span

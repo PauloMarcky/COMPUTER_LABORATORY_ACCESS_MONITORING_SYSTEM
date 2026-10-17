@@ -126,7 +126,7 @@ async function listReports(req, res) {
         },
         orderBy: { timeIn: 'asc' },
       },
-      pcOccupancies: { select: { studentProfileId: true, pcNumber: true, timeClaimed: true } },
+      pcOccupancies: { select: { studentProfileId: true, pcNumber: true, timeClaimed: true, timeReleased: true } },
     },
     orderBy: { endTime: 'desc' },
   });
@@ -170,6 +170,14 @@ async function listReports(req, res) {
           name: `${student.firstName} ${student.lastName}`,
           formalName: `${student.lastName}, ${student.firstName}`,
           pcNumber: occupancy?.pcNumber || 'None',
+          pcHistory: session.pcOccupancies
+            .filter((item) => item.studentProfileId === student.id)
+            .sort((left, right) => left.timeClaimed - right.timeClaimed)
+            .map((claim) => ({
+              pcNumber: claim.pcNumber,
+              claimedAt: claim.timeClaimed.toISOString(),
+              releasedAt: claim.timeReleased ? claim.timeReleased.toISOString() : null,
+            })),
           status: getAttendanceStatus(attendance.timeIn, session.schedule),
         };
       }),

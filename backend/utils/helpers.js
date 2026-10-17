@@ -17,6 +17,6 @@ function parseTime(value) {
 const getStudentProfile = (userId) => prisma.studentProfile.findUnique({ where: { studentId: userId } });
 const getInstructorProfile = (userId) => prisma.instructorProfile.findUnique({ where: { instructorId: userId } });
 
-const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 
 module.exports = { toId, parseTime, getStudentProfile, getInstructorProfile, DAYS };

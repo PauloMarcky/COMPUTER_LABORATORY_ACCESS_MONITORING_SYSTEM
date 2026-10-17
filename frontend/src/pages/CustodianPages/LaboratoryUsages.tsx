@@ -6,7 +6,7 @@ import {
 import { jsPDF } from 'jspdf';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { LabStaffSubNav } from '../../components/CustodianComponents/LabStaffSubNav';
-import { formatSchoolDate } from '../../utils/attendance-time';
+import { formatPcChain, formatPcTimeline, formatSchoolDate } from '../../utils/attendance-time';
 import { API_BASE_URL, readApiResponse } from '../../api';
 import type { LabRoomStatus, LabUsageRecord, Pc, PcStatus, WireframeScreenId } from '../../types';
 
@@ -850,7 +850,7 @@ const HistoryTab: React.FC<{ records: LabUsageRecord[] }> = ({ records }) => {
                                     <td className="px-4 py-3 font-mono text-xs text-slate-600">
                                       {student.timeOut || 'Not recorded'}
                                     </td>
-                                    <td className="px-4 py-3 font-mono text-xs text-slate-600">{student.pcNumber}</td>
+                                    <td className="px-4 py-3 font-mono text-xs text-slate-600"><span title={formatPcTimeline(student).join('\n')}>{formatPcChain(student)}</span></td>
                                     <td className="px-4 py-3 text-slate-600">{student.status}</td>
                                   </tr>
                                 ))}
@@ -975,7 +975,7 @@ function saveRecordPdf(record: LabUsageRecord, mode: 'room-usage' | 'attendance-
         student.studentId,
         student.timeIn,
         student.timeOut || 'Not recorded',
-        student.pcNumber,
+        formatPcChain(student, ' > '),
         `Present - ${student.status}`,
       ];
       const lines = values.map((v, vi) => doc.splitTextToSize(v, columnWidths[vi] - 8));
@@ -1088,7 +1088,7 @@ const PrintView: React.FC<{ records: LabUsageRecord[] }> = ({ records }) => {
                     <td className="border border-slate-400 px-1.5 py-0.5">{student.studentId}</td>
                     <td className="border border-slate-400 px-1.5 py-0.5">{student.timeIn}</td>
                     <td className="border border-slate-400 px-1.5 py-0.5">{student.timeOut || 'Not recorded'}</td>
-                    <td className="border border-slate-400 px-1.5 py-0.5">{student.pcNumber}</td>
+                    <td className="border border-slate-400 px-1.5 py-0.5">{(student.pcHistory?.length ?? 0) > 1 ? formatPcTimeline(student).map((line, i) => <div key={i}>{line}</div>) : student.pcNumber}</td>
                     <td className="border border-slate-400 px-1.5 py-0.5">{student.status}</td>
                   </tr>
                 ))}

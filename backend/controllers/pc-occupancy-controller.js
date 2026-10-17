@@ -1,6 +1,17 @@
 const prisma = require('../config/db');
 const { toId, getStudentProfile, getInstructorProfile } = require('../utils/helpers');
 
+const OPEN_ISSUE_STATUSES = ['PENDING', 'IN_PROGRESS'];
+const normalizePcNumber = (value) => String(value ?? '').trim().replace(/^PC-/i, '').toUpperCase();
+
+const PENDING_BLOCK_HOURS = 24;
+const blockingReportWhere = () => ({
+  OR: [
+    { status: 'IN_PROGRESS' },
+    { status: 'PENDING', reportedAt: { gte: new Date(Date.now() - PENDING_BLOCK_HOURS * 60 * 60 * 1000) } },
+  ],
+});
+
 async function claimPc(req, res) {
   const activeSessionId = toId(req.body?.activeSessionId);
   const pcNumber = String(req.body?.pcNumber ?? '').trim();
@@ -29,6 +40,8 @@ async function claimPc(req, res) {
       });
       if (mine) return { status: 409, error: `You already occupy PC ${mine.pcNumber}. Release it first.` };
 
+      // The PC-change limit is enforced in releasePc.
+
       const pc = await tx.pc.findUnique({
         where: { labRoomId_pcNumber: { labRoomId: session.schedule.labRoomId, pcNumber } },
         select: { status: true },
@@ -39,6 +52,17 @@ async function claimPc(req, res) {
           : pc.status === 'BROKEN' ? 'marked as broken'
           : 'out of service';
         return { status: 409, error: `That PC is ${label} and cannot be claimed.` };
+      }
+
+      const openReports = await tx.pcIssueReport.findMany({
+        where: {
+          ...blockingReportWhere(),
+          activeSession: { schedule: { labRoomId: session.schedule.labRoomId } },
+        },
+        select: { pcNumber: true },
+      });
+      if (openReports.some((report) => normalizePcNumber(report.pcNumber) === normalizePcNumber(pcNumber))) {
+        return { status: 409, error: 'That PC has an unresolved issue report and cannot be claimed.' };
       }
 
       const taken = await tx.pcOccupancy.findFirst({
@@ -87,7 +111,33 @@ async function releasePc(req, res) {
   }
   if (occupancy.timeReleased) return res.status(409).json({ error: 'PC already released.' });
 
-  const updated = await prisma.pcOccupancy.update({ where: { id }, data: { timeReleased: new Date() } });
+  if (isOwner) {
+    const MAX_FREE_PC_CHANGES = 2;
+    const releasedCount = await prisma.pcOccupancy.count({
+      where: {
+        activeSessionId: occupancy.activeSessionId,
+        studentProfileId: occupancy.studentProfileId,
+        timeReleased: { not: null },
+      },
+    });
+    if (releasedCount >= MAX_FREE_PC_CHANGES) {
+      const normPc = (value) => String(value ?? '').trim().replace(/^PC-/i, '').toUpperCase();
+      const reports = await prisma.pcIssueReport.findMany({
+        where: { activeSessionId: occupancy.activeSessionId, studentProfileId: occupancy.studentProfileId },
+        select: { pcNumber: true },
+      });
+      const reportedThisPc = reports.some((report) => normPc(report.pcNumber) === normPc(occupancy.pcNumber));
+      if (!reportedThisPc) {
+        return res.status(409).json({
+          error: `You already changed PCs ${MAX_FREE_PC_CHANGES} times. You can't release ${occupancy.pcNumber} again without reporting an issue on it first.`,
+        });
+      }
+    }
+  }
+
+  const released = await prisma.pcOccupancy.updateMany({ where: { id, timeReleased: null }, data: { timeReleased: new Date() } });
+  if (released.count === 0) return res.status(409).json({ error: 'PC already released.' });
+  const updated = await prisma.pcOccupancy.findUnique({ where: { id } });
   return res.json({ occupancy: updated });
 }
 
@@ -113,6 +163,7 @@ async function listBySession(req, res) {
     include: { studentProfile: { select: { id: true, firstName: true, lastName: true } } },
     orderBy: { pcNumber: 'asc' },
   });
+  occupancies.sort((x, y) => new Date(x.timeClaimed).getTime() - new Date(y.timeClaimed).getTime());
   return res.json({ occupancies });
 }
 
@@ -162,7 +213,21 @@ async function listAvailability(req, res) {
     }),
   ]);
 
-  return res.json({ occupancies, pcs: roomPcs });
+  const openReports = await prisma.pcIssueReport.findMany({
+    where: {
+      ...blockingReportWhere(),
+      activeSession: { schedule: { labRoomId: enrollment.schedule.labRoomId } },
+    },
+    select: { pcNumber: true },
+  });
+  const flagged = new Set(openReports.map((report) => normalizePcNumber(report.pcNumber)));
+  const pcs = roomPcs.map((pc) => (
+    pc.status === 'AVAILABLE' && flagged.has(normalizePcNumber(pc.pcNumber))
+      ? { ...pc, status: 'UNDER_REPAIR' }
+      : pc
+  ));
+
+  return res.json({ occupancies, pcs });
 }
 
 module.exports = { claimPc, releasePc, listBySession, getMyOccupancy, listAvailability };

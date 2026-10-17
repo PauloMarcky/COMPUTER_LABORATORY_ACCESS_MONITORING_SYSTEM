@@ -99,13 +99,13 @@ export const AdminStudentsAnalyticsView: React.FC<AdminAnalyticsProps> = ({
   );
 
   return (
-    <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
+    <div className="min-h-[calc(100vh-44px)] bg-white">
       <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
 
       <div className="clams-layout">
         <AdminSubNav activeScreen="admin-students-analytics" onNavigate={onNavigate} />
 
-        <main className="space-y-6">
+        <main className="admin-flat space-y-6">
           {loading && (
             <section className="rounded-2xl border border-[#1b325f]/10 bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">
               Loading analytics…

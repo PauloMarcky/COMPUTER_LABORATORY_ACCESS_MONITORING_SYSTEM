@@ -53,6 +53,7 @@ export interface AttendanceEntry {
   pcNumber: string;
   status: 'On-Time' | 'Late';
   signed?: boolean;
+  pcHistory?: Array<{ pcNumber: string; claimedAt: string; releasedAt: string | null }>;
 }
 
 export interface PCStation {

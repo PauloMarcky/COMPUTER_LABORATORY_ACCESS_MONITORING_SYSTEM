@@ -90,6 +90,34 @@
   }
 }
 
+/* Flat admin pages: opt in by adding "admin-flat" to the page's <main>.
+   Turns floating cards into plain sections with a thin top line.
+   Kept outside any @layer so it overrides the Tailwind utility classes. */
+.admin-flat .rounded-2xl:not([role="dialog"]) {
+  border-width: 0;
+  border-top: 1px solid #cbd5e1;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.admin-flat .rounded-2xl.p-6 {
+  padding: 1rem 0 0;
+}
+
+.admin-flat .rounded-2xl > .px-6 {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.admin-flat .rounded-2xl .rounded-xl {
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 @media (max-width: 767px) {
   .clams-layout {
     display: block;

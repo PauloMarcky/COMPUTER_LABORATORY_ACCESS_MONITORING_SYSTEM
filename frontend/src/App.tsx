@@ -158,6 +158,11 @@ const mapClassReportsToUsageRecords = (reports: ClassReportSubmission[]): LabUsa
     students: report.attendanceList.map((attendance) => ({
       ...attendance,
       timeIn: formatAttendanceTime(new Date(attendance.timeIn)),
+      pcHistory: (attendance.pcHistory ?? []).map((h) => ({
+        pcNumber: h.pcNumber,
+        claimedAt: formatAttendanceTime(new Date(h.claimedAt)),
+        releasedAt: h.releasedAt ? formatAttendanceTime(new Date(h.releasedAt)) : null,
+      })),
       timeOut: attendance.timeOut
         ? formatAttendanceTime(new Date(attendance.timeOut))
         : 'Not recorded',
@@ -571,6 +576,10 @@ export default function App() {
       });
       const occupancyData = await readApiResponse<{ error?: string; occupancies: Array<{ studentProfileId: number; pcNumber: string }> }>(occupancyResponse);
       if (!occupancyResponse.ok) throw new Error(occupancyData.error || 'Unable to load PC claims.');
+      const pcHistoryByStudent = buildPcHistory(occupancyData.occupancies ?? []);
+      occupancyData.occupancies = (occupancyData.occupancies ?? []).filter(
+        (claim) => !(claim as typeof claim & { timeReleased?: string | null }).timeReleased
+      );
 
       const occupancyByStudent = new Map(
         (occupancyData.occupancies ?? []).map((occupancy) => [String(occupancy.studentProfileId), occupancy.pcNumber])
@@ -584,6 +593,7 @@ export default function App() {
         formalName: `${item.studentProfile.lastName}, ${item.studentProfile.firstName}`,
         pcNumber: occupancyByStudent.get(String(item.studentProfile.id)) || 'None',
         status: getAttendanceStatus(new Date(item.timeIn), restoredSchedule.startTime, restoredSchedule.endTime),
+        pcHistory: pcHistoryByStudent.get(String(item.studentProfile.id)) ?? [],
       })));
 
       setCurrentScreen(sessionStorage.getItem(LAST_SCREEN_STORAGE_KEY) === 'instructor-attendance-export'
@@ -1068,6 +1078,24 @@ export default function App() {
     }
   };
 
+  const buildPcHistory = (
+    rows: Array<{ studentProfileId: number; pcNumber: string; timeClaimed?: string; timeReleased?: string | null }>
+  ) => {
+    const byStudent = new Map<string, Array<{ pcNumber: string; claimedAt: string; releasedAt: string | null }>>();
+    for (const row of rows) {
+      if (!row.timeClaimed) continue;
+      const key = String(row.studentProfileId);
+      const list = byStudent.get(key) ?? [];
+      list.push({
+        pcNumber: row.pcNumber,
+        claimedAt: formatAttendanceTime(new Date(row.timeClaimed)),
+        releasedAt: row.timeReleased ? formatAttendanceTime(new Date(row.timeReleased)) : null,
+      });
+      byStudent.set(key, list);
+    }
+    return byStudent;
+  };
+
   const refreshInstructorSessionState = async (sessionId = activeInstructorSessionId, token = instructorToken) => {
     if (!sessionId || !token || !activeInstructorSchedule) return;
 
@@ -1076,7 +1104,7 @@ export default function App() {
         fetch(`${API_BASE_URL}/attendance/session/${sessionId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_BASE_URL}/pc-occupancy/session/${sessionId}?occupied=true`, {
+        fetch(`${API_BASE_URL}/pc-occupancy/session/${sessionId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -1087,6 +1115,10 @@ export default function App() {
 
       if (!attendanceResponse.ok) throw new Error(attendanceData.error || 'Unable to refresh attendance.');
       if (!occupancyResponse.ok) throw new Error(occupancyData.error || 'Unable to refresh PC claims.');
+      const pcHistoryByStudent = buildPcHistory(occupancyData.occupancies ?? []);
+      occupancyData.occupancies = (occupancyData.occupancies ?? []).filter(
+        (claim) => !(claim as typeof claim & { timeReleased?: string | null }).timeReleased
+      );
 
       const occupancyByStudent = new Map(
         (occupancyData.occupancies ?? []).map((occupancy) => [String(occupancy.studentProfileId), occupancy.pcNumber])
@@ -1100,6 +1132,7 @@ export default function App() {
         formalName: `${item.studentProfile.lastName}, ${item.studentProfile.firstName}`,
         pcNumber: occupancyByStudent.get(String(item.studentProfile.id)) || 'None',
         status: getAttendanceStatus(new Date(item.timeIn), activeInstructorSchedule.startTime, activeInstructorSchedule.endTime),
+        pcHistory: pcHistoryByStudent.get(String(item.studentProfile.id)) ?? [],
       })));
     } catch (error) {
       console.warn('Unable to refresh instructor session state.', error);
@@ -1239,16 +1272,19 @@ export default function App() {
     const availabilityResponse = await fetch(`${API_BASE_URL}/pc-occupancy/availability/${activeStudentSessionId}`, {
       headers: { Authorization: `Bearer ${studentToken}` },
     });
-    const availability = await readApiResponse<{ error?: string; occupancies: Array<{ pcNumber: string }> }>(availabilityResponse);
+    const availability = await readApiResponse<{ error?: string; occupancies: Array<{ pcNumber: string }>; pcs?: Array<{ pcNumber: string; status: string }> }>(availabilityResponse);
     if (!availabilityResponse.ok) throw new Error(availability.error || 'Unable to refresh PC availability.');
     const occupied = new Set(availability.occupancies.map((occupancy) => occupancy.pcNumber));
+    const outOfService = new Set((availability.pcs ?? []).filter((pc) => pc.status !== 'AVAILABLE').map((pc) => pc.pcNumber));
     setPcStations((stations) => stations.map((station) => ({
       ...station,
       status: station.number === selectedPc && isClaimedConfirmed
-        ? 'free'
+        ? (outOfService.has(`PC-${station.number}`) ? 'unavailable' : 'free')
         : station.number === selectedPc && !isClaimedConfirmed
           ? 'you'
-          : occupied.has(`PC-${station.number}`) ? 'occupied' : 'free',
+          : outOfService.has(`PC-${station.number}`)
+            ? 'unavailable'
+            : occupied.has(`PC-${station.number}`) ? 'occupied' : 'free',
     })));
   };
 
@@ -1429,6 +1465,7 @@ export default function App() {
 
         {currentScreen === 'instructor-attendance-export' && (
           <ExportAttendancePage
+            schedule={activeInstructorSchedule}
             attendance={attendance}
             onNavigate={setCurrentScreen}
             onBackToSchedule={handleBackToInstructorScheduleSelection}

@@ -35,6 +35,22 @@ export function getAttendanceStatus(
   return currentTime >= lateAfter ? 'Late' : 'On-Time';
 }
 
+// "PC-1 → PC-2" when a student changed PCs, otherwise the single PC (or "None").
+export function formatPcChain(
+  entry: Pick<AttendanceEntry, 'pcNumber' | 'pcHistory'>,
+  separator = ' → ',
+): string {
+  const history = entry.pcHistory ?? [];
+  return history.length > 1 ? history.map((h) => h.pcNumber).join(separator) : entry.pcNumber;
+}
+
+// One line per PC with claim/release times, for tooltips and wide export columns.
+export function formatPcTimeline(entry: Pick<AttendanceEntry, 'pcNumber' | 'pcHistory'>): string[] {
+  const history = entry.pcHistory ?? [];
+  if (history.length === 0) return [entry.pcNumber];
+  return history.map((h) => `${h.pcNumber} (${h.claimedAt}${h.releasedAt ? ` – ${h.releasedAt}` : ' – in use'})`);
+}
+
 export function formatAttendanceTime(time: Date): string {
   return time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 }

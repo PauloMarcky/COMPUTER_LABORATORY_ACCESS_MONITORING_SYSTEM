@@ -60,6 +60,7 @@ const DAYS: Array<{ key: ScheduleEntry['day']; label: string }> = [
   { key: 'Wed', label: 'Wednesday' },
   { key: 'Thu', label: 'Thursday' },
   { key: 'Fri', label: 'Friday' },
+  
 ];
 
 const ALL_DAYS: ScheduleEntry['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];

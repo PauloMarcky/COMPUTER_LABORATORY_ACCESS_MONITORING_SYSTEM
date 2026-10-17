@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, CircleDashed, X, Wrench } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, CircleDashed, X, Wrench } from 'lucide-react';
 import type { PCIssueReport, PCIssueStatus } from '../../types';
 
 interface PCIssueRepairQueueProps {
@@ -13,6 +13,17 @@ export const PCIssueRepairQueue: React.FC<PCIssueRepairQueueProps> = ({
 }) => {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [error, setError] = React.useState('');
+  const [preview, setPreview] = React.useState<{ urls: string[]; index: number } | null>(null);
+  React.useEffect(() => {
+    if (!preview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreview(null);
+      else if (e.key === 'ArrowRight') setPreview((p) => (p ? { ...p, index: (p.index + 1) % p.urls.length } : p));
+      else if (e.key === 'ArrowLeft') setPreview((p) => (p ? { ...p, index: (p.index - 1 + p.urls.length) % p.urls.length } : p));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [preview]);
   const updateStatus = async (reportId: string, status: PCIssueStatus) => {
     setBusyId(reportId);
     setError('');
@@ -69,14 +80,14 @@ export const PCIssueRepairQueue: React.FC<PCIssueRepairQueueProps> = ({
                   <p className="mt-2 text-[11px] text-slate-400">Reported {report.submittedAt}</p>
                   {report.imageUrls && report.imageUrls.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {report.imageUrls.map((url, idx) => (
-                        <a key={idx} href={url} target="_blank" rel="noreferrer" className="block">
+                      {report.imageUrls.map((url, idx, all) => (
+                        <button key={idx} type="button" onClick={() => setPreview({ urls: all, index: idx })} aria-label={`View photo ${idx + 1}`} className="block cursor-zoom-in">
                           <img
                             src={url}
                             alt={`Photo ${idx + 1}`}
                             className="h-16 w-16 rounded-md border border-slate-200 object-cover transition hover:ring-2 hover:ring-[#1b325f]/40"
                           />
-                        </a>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -105,6 +116,53 @@ export const PCIssueRepairQueue: React.FC<PCIssueRepairQueueProps> = ({
         </div>
       )}
       {error && <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">{error}</p>}
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo preview"
+          onClick={() => setPreview(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPreview(null)}
+            aria-label="Close preview"
+            className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-slate-800 shadow transition hover:bg-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {preview.urls.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setPreview({ ...preview, index: (preview.index - 1 + preview.urls.length) % preview.urls.length }); }}
+              aria-label="Previous photo"
+              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-800 shadow transition hover:bg-white"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+          )}
+          <img
+            src={preview.urls[preview.index]}
+            alt={`Photo ${preview.index + 1}`}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl"
+          />
+          {preview.urls.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setPreview({ ...preview, index: (preview.index + 1) % preview.urls.length }); }}
+              aria-label="Next photo"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-800 shadow transition hover:bg-white"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          )}
+          <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-800">
+            {preview.index + 1} / {preview.urls.length}
+          </span>
+        </div>
+      )}
     </section>
   );
 };
