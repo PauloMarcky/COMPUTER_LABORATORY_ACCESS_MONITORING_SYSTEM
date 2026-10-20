@@ -327,4 +327,58 @@ async function updateUserName(req, res) {
   return res.json({ user: { id, firstName, lastName, fullName: `${firstName} ${lastName}` } });
 }
 
-module.exports = { login, listUsers, createUser, importStudents, updatePassword, updateUserName, deleteUser };
+async function updateSchoolId(req, res) {
+  const id = toId(req.params.id);
+  const schoolId = typeof req.body?.schoolId === 'string' ? req.body.schoolId.trim() : '';
+  if (!id) return res.status(400).json({ error: 'Invalid user ID.' });
+  if (!schoolId || schoolId.length > 191) {
+    return res.status(400).json({ error: 'School ID is required and must be 191 characters or fewer.' });
+  }
+
+  try {
+    const user = await prisma.user.update({
+      where: { id },
+      data: { schoolId },
+      select: { id: true, schoolId: true },
+    });
+    return res.json({ user });
+  } catch (error) {
+    if (error.code === 'P2025') return res.status(404).json({ error: 'User not found.' });
+    if (error.code === 'P2002') return res.status(409).json({ error: 'A user with this school ID already exists.' });
+    throw error;
+  }
+}
+
+async function deleteUsers(req, res) {
+  const rawIds = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const ids = [...new Set(rawIds.map((value) => toId(String(value))).filter(Boolean))];
+  if (!ids.length) return res.status(400).json({ error: 'Select at least one user to delete.' });
+  if (ids.length > 500) return res.status(400).json({ error: 'You can delete at most 500 users at a time.' });
+  if (ids.includes(req.user.id)) return res.status(400).json({ error: 'You cannot delete your own account.' });
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    const targets = await tx.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, role: true },
+    });
+    if (!targets.length) return { status: 404, error: 'No matching users found.' };
+
+    const adminTargets = targets.filter((target) => target.role === 'ADMIN').length;
+    if (adminTargets) {
+      const adminCount = await tx.user.count({ where: { role: 'ADMIN' } });
+      if (adminCount - adminTargets < 1) {
+        return { status: 409, error: 'The last administrator account cannot be deleted.' };
+      }
+    }
+
+    const result = await tx.user.deleteMany({
+      where: { id: { in: targets.map((target) => target.id) } },
+    });
+    return { status: 200, deleted: result.count };
+  }, { isolationLevel: 'Serializable', timeout: 30000 });
+
+  if (outcome.error) return res.status(outcome.status).json({ error: outcome.error });
+  return res.json({ deleted: outcome.deleted });
+}
+
+module.exports = { login, listUsers, createUser, importStudents, updatePassword, updateUserName, updateSchoolId, deleteUser, deleteUsers };

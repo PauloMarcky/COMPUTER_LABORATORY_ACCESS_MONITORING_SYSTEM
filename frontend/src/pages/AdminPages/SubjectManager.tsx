@@ -18,6 +18,7 @@ interface SubjectUsage {
 }
 
 interface Props {
+  onLogout: () => void;
   token: string;
   onNavigate: (screen: WireframeScreenId) => void;
 }
@@ -41,7 +42,7 @@ const yearBadgeClasses = (year: number | null): string => {
   }
 };
 
-export const SubjectManagerView: React.FC<Props> = ({ token, onNavigate }) => {
+export const SubjectManagerView: React.FC<Props> = ({ token, onNavigate, onLogout }) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -197,10 +198,10 @@ export const SubjectManagerView: React.FC<Props> = ({ token, onNavigate }) => {
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <AdminSubNav activeScreen="admin-subjects" onNavigate={onNavigate} />
+        <AdminSubNav activeScreen="admin-subjects" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#1b325f]/15 bg-gradient-to-r from-[#1b325f]/[0.04] to-transparent px-6 py-5 shadow-sm">

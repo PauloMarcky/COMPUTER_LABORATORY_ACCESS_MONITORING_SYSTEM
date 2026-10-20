@@ -1,4 +1,4 @@
-const MAX_STUDENT_IMPORT_ROWS = 100;
+const MAX_STUDENT_IMPORT_ROWS = Infinity;
 
 function normalizeStudentYearLevel(value) {
   if (value === null || value === undefined || value === '') return null;

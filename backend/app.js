@@ -29,6 +29,7 @@ app.use(cors({
     callback(null, !origin || allowedOrigins.has(origin));
   },
 }));
+app.use('/api/users/import/students', express.json({ limit: '5mb' }));
 app.use(express.json({ limit: '100kb' }));
 
 const scanLimiter = rateLimit({

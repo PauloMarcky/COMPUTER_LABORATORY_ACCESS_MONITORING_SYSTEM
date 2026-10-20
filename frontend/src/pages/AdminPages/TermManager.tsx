@@ -15,6 +15,7 @@ interface Term {
 }
 
 interface Props {
+  onLogout: () => void;
   token: string;
   onNavigate: (screen: WireframeScreenId) => void;
 }
@@ -30,7 +31,7 @@ const emptyForm = {
   copySchedules: true,
 };
 
-export const TermManagerView: React.FC<Props> = ({ token, onNavigate }) => {
+export const TermManagerView: React.FC<Props> = ({ token, onNavigate, onLogout }) => {
   const [terms, setTerms] = useState<Term[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -156,10 +157,10 @@ export const TermManagerView: React.FC<Props> = ({ token, onNavigate }) => {
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <AdminSubNav activeScreen="admin-terms" onNavigate={onNavigate} />
+        <AdminSubNav activeScreen="admin-terms" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#1b325f]/15 bg-gradient-to-r from-[#1b325f]/[0.04] to-transparent px-6 py-5 shadow-sm">

@@ -47,6 +47,7 @@ interface Overview {
 }
 
 interface AdminAnalyticsProps {
+  onLogout: () => void;
   token: string;
   onNavigate: (screen: WireframeScreenId) => void;
 }
@@ -60,6 +61,7 @@ function monthLabel(yyyymm: string): string {
 }
 
 export const AdminStudentsAnalyticsView: React.FC<AdminAnalyticsProps> = ({
+  onLogout,
   token,
   onNavigate,
 }) => {
@@ -100,10 +102,10 @@ export const AdminStudentsAnalyticsView: React.FC<AdminAnalyticsProps> = ({
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-white">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <AdminSubNav activeScreen="admin-students-analytics" onNavigate={onNavigate} />
+        <AdminSubNav activeScreen="admin-students-analytics" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="admin-flat space-y-6">
           {loading && (

@@ -23,6 +23,7 @@ interface InstructorRow {
 }
 
 interface AdminTeacherWorkloadProps {
+  onLogout: () => void;
   token: string;
   onNavigate: (screen: WireframeScreenId) => void;
 }
@@ -34,6 +35,7 @@ const PRIMARY_BTN =
   'inline-flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-600/30 transition-all hover:bg-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50';
 
 export const AdminTeacherWorkloadView: React.FC<AdminTeacherWorkloadProps> = ({
+  onLogout,
   token,
   onNavigate,
 }) => {
@@ -205,10 +207,10 @@ export const AdminTeacherWorkloadView: React.FC<AdminTeacherWorkloadProps> = ({
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <AdminSubNav activeScreen="admin-teacher-workload" onNavigate={onNavigate} />
+        <AdminSubNav activeScreen="admin-teacher-workload" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           {/* Filter bar */}

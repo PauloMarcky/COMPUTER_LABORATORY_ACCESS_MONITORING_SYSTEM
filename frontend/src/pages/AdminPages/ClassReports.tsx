@@ -6,11 +6,13 @@ import type { ClassReportSubmission, WireframeScreenId } from '../../types';
 import { formatSchoolDate } from '../../utils/attendance-time';
 
 interface AdminReportsDashboardProps {
+  onLogout: () => void;
   reports: ClassReportSubmission[];
   onNavigate: (screen: WireframeScreenId) => void;
 }
 
 export const AdminReportsDashboardView: React.FC<AdminReportsDashboardProps> = ({
+  onLogout,
   reports,
   onNavigate,
 }) => {
@@ -32,10 +34,10 @@ export const AdminReportsDashboardView: React.FC<AdminReportsDashboardProps> = (
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#eef1f7]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <AdminSubNav activeScreen="admin-reports-dashboard" onNavigate={onNavigate} />
+        <AdminSubNav activeScreen="admin-reports-dashboard" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-6">
           {/* Filter Bar */}

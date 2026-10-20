@@ -31,6 +31,7 @@ interface RosterResponse {
 }
 
 interface Props {
+  onLogout: () => void;
   schedule: ScheduleEntry | null;
   token: string;
   onNavigate: (screen: WireframeScreenId) => void;
@@ -44,7 +45,7 @@ const YEAR_FILTERS = [
   { value: 4, label: '4th Year' },
 ];
 
-export const ManageRosterView: React.FC<Props> = ({ schedule, token, onNavigate }) => {
+export const ManageRosterView: React.FC<Props> = ({ schedule, token, onNavigate, onLogout }) => {
   const [data, setData] = useState<RosterResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -148,10 +149,10 @@ export const ManageRosterView: React.FC<Props> = ({ schedule, token, onNavigate 
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-[#f4f6f9]">
-      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" />
+      <ClamsHeader onNavigate={onNavigate} statusLabel="Computer Laboratory System" showLogout={false} />
 
       <div className="clams-layout">
-        <AdminSubNav activeScreen="admin-schedule-roster" onNavigate={onNavigate} />
+        <AdminSubNav activeScreen="admin-schedule-roster" onNavigate={onNavigate} onLogout={onLogout} />
 
         <main className="space-y-5">
           <div>
