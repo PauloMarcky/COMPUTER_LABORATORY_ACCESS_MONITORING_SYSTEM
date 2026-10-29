@@ -37,13 +37,14 @@
     padding: 1.5rem;
   }
 
-  /* Sidebar is now in normal flow and sticks while scrolling */
+  /* Sidebar is fixed to the viewport, just below the sticky header */
   .clams-sidebar {
-    position: sticky;
-    top: 1.5rem;
+    position: fixed;
+    top: calc(4.3rem + 1.5rem);
+    left: 1.5rem;
     flex-shrink: 0;
     width: 16rem;
-    max-height: calc(100vh - 3rem);
+    max-height: calc(100vh - 4.3rem - 3rem);
     overflow-y: auto;
     border-radius: 0.85rem;
     box-shadow: 0 12px 28px rgb(15 23 42 / 0.1);
@@ -57,10 +58,22 @@
     min-width: 0;
   }
 
+  /* Sidebar/toggle are fixed, so reserve their space inside the layout */
+  @media (min-width: 768px) {
+    .clams-layout:has(> .clams-sidebar) {
+      padding-left: calc(1.5rem + 16rem + 1.5rem);
+    }
+
+    .clams-layout:has(> .clams-sidebar-toggle) {
+      padding-left: calc(1.5rem + 2.25rem + 1.5rem);
+    }
+  }
+
   /* The small floating toggle when sidebar is collapsed */
   .clams-sidebar-toggle {
-    position: sticky;
-    top: 1.5rem;
+    position: fixed;
+    top: calc(4.3rem + 1.5rem);
+    left: 1.5rem;
     flex-shrink: 0;
     z-index: 20;
     display: inline-flex;
@@ -140,8 +153,25 @@
   }
 
   .clams-sidebar {
+    left: 1rem;
+    top: calc(4.3rem + 1rem);
     width: 14rem;
-    max-height: calc(100vh - 2rem);
+    max-height: calc(100vh - 4.3rem - 2rem);
+  }
+
+  .clams-sidebar-toggle {
+    left: 1rem;
+    top: calc(4.3rem + 1rem);
+  }
+
+  @media (min-width: 768px) {
+    .clams-layout:has(> .clams-sidebar) {
+      padding-left: calc(1rem + 14rem + 1rem);
+    }
+
+    .clams-layout:has(> .clams-sidebar-toggle) {
+      padding-left: calc(1rem + 2.25rem + 1rem);
+    }
   }
 }
 
