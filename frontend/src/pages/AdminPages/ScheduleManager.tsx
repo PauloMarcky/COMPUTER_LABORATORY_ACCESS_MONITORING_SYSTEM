@@ -790,15 +790,6 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setIsDeleteConfirmationOpen(true)}
-                disabled={!schedules.length || isLoading || isDeletingAll}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-rose-200 bg-white px-5 py-3 text-sm font-semibold text-rose-600 shadow-sm transition-all hover:bg-rose-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span>{isDeletingAll ? 'Deleting...' : 'Delete All'}</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => openCreate('Mon', '02:00 PM')}
                 className="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-600/30 transition-all hover:bg-blue-700 hover:shadow-lg"
               >
@@ -944,52 +935,6 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
         />
       )}
 
-      {isDeleteConfirmationOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f1a30]/70 px-4 py-6 backdrop-blur-sm">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-schedules-title"
-            aria-describedby="delete-schedules-description"
-            className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl shadow-rose-900/20"
-          >
-            <div className="bg-rose-600 px-7 py-4">
-              <h2 id="delete-schedules-title" className="text-lg font-bold text-white">
-                Delete all schedules?
-              </h2>
-            </div>
-            <div className="p-7">
-              <p id="delete-schedules-description" className="text-sm leading-relaxed text-slate-600">
-                This permanently deletes all {schedules.length} schedules, along with their enrollments and active sessions.
-              </p>
-              {deleteError && (
-                <p role="alert" className="mt-4 text-sm font-medium text-rose-700">
-                  {deleteError}
-                </p>
-              )}
-              <div className="mt-7 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsDeleteConfirmationOpen(false)}
-                  disabled={isDeletingAll}
-                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteAllSchedules()}
-                  disabled={isDeletingAll}
-                  className="inline-flex items-center gap-2 rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-700/30 transition-all hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  {isDeletingAll ? 'Deleting...' : 'Delete all'}
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
     </div>
   );
 };
