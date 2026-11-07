@@ -903,7 +903,7 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
               <div className="overflow-x-auto">
                 <div className="min-w-[900px]">
                   {/* Day header */}
-                  <div className="grid grid-cols-[8rem_repeat(5,minmax(0,1fr))] bg-[#1b325f] text-sm font-bold text-white">
+                  <div className="grid grid-cols-[9.5rem_repeat(5,minmax(0,1fr))] bg-[#1b325f] text-sm font-bold text-white">
                     <div className="border-r border-white/10 px-5 py-4 text-left font-semibold text-white/70">
                       Time
                     </div>
@@ -915,15 +915,15 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
                   </div>
 
                   {/* Time grid: 7 AM – 7 PM, block height follows duration */}
-                  <div className="grid grid-cols-[8rem_repeat(5,minmax(0,1fr))] py-3">
+                  <div className="grid grid-cols-[9.5rem_repeat(5,minmax(0,1fr))] py-3">
                     <div className="relative border-r border-slate-100 bg-[#1b325f]/[0.03]" style={{ height: GRID_HEIGHT }}>
-                      {GRID_HOURS.map((hour) => (
+                      {GRID_HOURS.slice(0, -1).map((hour) => (
                         <div
                           key={hour}
-                          className="absolute inset-x-0 -translate-y-1/2 text-center font-mono text-xs font-bold tabular-nums text-[#1b325f]"
-                          style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX }}
+                          className="absolute inset-x-0 flex items-center justify-center whitespace-nowrap border-t border-slate-100 font-mono text-[11px] font-bold tabular-nums text-[#1b325f] first:border-t-0"
+                          style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX, height: HOUR_PX }}
                         >
-                          {formatHourLabel(hour)}
+                          {formatHourLabel(hour)} – {formatHourLabel(hour + 1)}
                         </div>
                       ))}
                     </div>
