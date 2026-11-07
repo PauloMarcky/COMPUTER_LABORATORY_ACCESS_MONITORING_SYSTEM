@@ -54,6 +54,76 @@ const toScheduleTime = (time: string) => {
   return `${String(hour % 12 || 12).padStart(2, '0')}:${minute} ${period}`;
 };
 
+/* Time viewer: fixed 7 AM – 7 PM axis, blocks sized by duration */
+const GRID_START_MIN = 7 * 60;
+const GRID_END_MIN = 19 * 60;
+const HOUR_PX = 80;
+const GRID_HEIGHT = ((GRID_END_MIN - GRID_START_MIN) / 60) * HOUR_PX;
+const GRID_HOURS = Array.from(
+  { length: (GRID_END_MIN - GRID_START_MIN) / 60 + 1 },
+  (_, i) => GRID_START_MIN / 60 + i
+);
+
+const formatHourLabel = (hour: number) => {
+  const period = hour >= 12 ? 'PM' : 'AM';
+  return `${hour % 12 || 12}:00 ${period}`;
+};
+
+const minutesToScheduleTime = (minutes: number) =>
+  toScheduleTime(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
+
+interface PositionedEntry {
+  entry: ScheduleEntry;
+  startMin: number;
+  endMin: number;
+  lane: number;
+  lanes: number;
+}
+
+/** Places a day's entries on the grid; overlapping entries share the width side by side. */
+const layoutDay = (entries: ScheduleEntry[]): PositionedEntry[] => {
+  const items = entries
+    .map((entry) => {
+      const startMin = timeToMinutes(entry.startTime);
+      let endMin = timeToMinutes(entry.endTime);
+      if (startMin === Number.MAX_SAFE_INTEGER) return null;
+      if (endMin === Number.MAX_SAFE_INTEGER || endMin <= startMin) endMin = startMin + 60;
+      // Keep only the part inside 7 AM – 7 PM.
+      const s = Math.max(startMin, GRID_START_MIN);
+      const e = Math.min(endMin, GRID_END_MIN);
+      if (e <= s) return null;
+      return { entry, startMin: s, endMin: e, lane: 0, lanes: 1 };
+    })
+    .filter((x): x is PositionedEntry => x !== null)
+    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+
+  let cluster: PositionedEntry[] = [];
+  let laneEnds: number[] = [];
+  let clusterEnd = -1;
+
+  const flush = () => {
+    cluster.forEach((c) => { c.lanes = laneEnds.length; });
+    cluster = [];
+    laneEnds = [];
+  };
+
+  for (const item of items) {
+    if (cluster.length && item.startMin >= clusterEnd) flush();
+    let lane = laneEnds.findIndex((end) => end <= item.startMin);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(item.endMin);
+    } else {
+      laneEnds[lane] = item.endMin;
+    }
+    item.lane = lane;
+    cluster.push(item);
+    clusterEnd = cluster.length === 1 ? item.endMin : Math.max(clusterEnd, item.endMin);
+  }
+  flush();
+  return items;
+};
+
 const DAYS: Array<{ key: ScheduleEntry['day']; label: string }> = [
   { key: 'Mon', label: 'Monday' },
   { key: 'Tue', label: 'Tuesday' },
@@ -72,13 +142,17 @@ const YEAR_LEVELS = [
   { value: 4, label: '4th Year' },
 ];
 
-const createDraft = (day: ScheduleEntry['day'] = 'Mon', startTime = '02:00 PM'): ScheduleEntry => ({
+const createDraft = (
+  day: ScheduleEntry['day'] = 'Mon',
+  startTime = '02:00 PM',
+  endTime = '04:00 PM'
+): ScheduleEntry => ({
   id: '',
   instructorId: 0,
   labRoomId: 0,
   day,
   startTime,
-  endTime: '04:00 PM',
+  endTime,
   subject: '',
   teacher: '',
   room: '',
@@ -657,8 +731,8 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
 
   const [modalSchedule, setModalSchedule] = useState<ScheduleEntry | null>(null);
 
-  const openCreate = (day?: ScheduleEntry['day'], startTime?: string) => {
-    setModalSchedule(createDraft(day, startTime));
+  const openCreate = (day?: ScheduleEntry['day'], startTime?: string, endTime?: string) => {
+    setModalSchedule(createDraft(day, startTime, endTime));
   };
   const openEdit = (entry: ScheduleEntry) => {
     if (activeTermLabel && entry.semester && entry.semester !== activeTermLabel) {
@@ -717,15 +791,16 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
     return matchesRoom && matchesSem;
   });
 
-  const timeSlots = [...new Set(filteredSchedules.map((s) => s.startTime))]
-    .sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
-
-  const groupedSchedules = filteredSchedules.reduce<Record<string, ScheduleEntry[]>>((acc, schedule) => {
-    const key = `${schedule.day}|${schedule.startTime}`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(schedule);
+  const positionedByDay = DAYS.reduce<Record<string, PositionedEntry[]>>((acc, day) => {
+    acc[day.key] = layoutDay(filteredSchedules.filter((s) => s.day === day.key));
     return acc;
   }, {});
+
+  const hiddenCount = filteredSchedules.filter((s) => {
+    const start = timeToMinutes(s.startTime);
+    const end = timeToMinutes(s.endTime);
+    return start === Number.MAX_SAFE_INTEGER || end <= GRID_START_MIN || start >= GRID_END_MIN;
+  }).length;
 
   const getColorClasses = (theme: ScheduleEntry['colorTheme']) => {
     switch (theme) {
@@ -826,63 +901,95 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
           ) : schedules.length > 0 ? (
             <section className="overflow-hidden rounded-2xl border border-[#1b325f]/10 bg-white shadow-lg shadow-[#1b325f]/5">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] table-fixed border-collapse">
-                  <thead>
-                    <tr className="bg-[#1b325f] text-sm font-bold text-white">
-                      <th className="w-32 border-r border-white/10 px-5 py-4 text-left font-semibold text-white/70">
-                        Time
-                      </th>
-                      {DAYS.map((day) => (
-                        <th key={day.key} className="border-r border-white/10 px-5 py-4 text-center last:border-r-0">
-                          {day.label}
-                        </th>
+                <div className="min-w-[900px]">
+                  {/* Day header */}
+                  <div className="grid grid-cols-[8rem_repeat(5,minmax(0,1fr))] bg-[#1b325f] text-sm font-bold text-white">
+                    <div className="border-r border-white/10 px-5 py-4 text-left font-semibold text-white/70">
+                      Time
+                    </div>
+                    {DAYS.map((day) => (
+                      <div key={day.key} className="border-r border-white/10 px-5 py-4 text-center last:border-r-0">
+                        {day.label}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Time grid: 7 AM – 7 PM, block height follows duration */}
+                  <div className="grid grid-cols-[8rem_repeat(5,minmax(0,1fr))] py-3">
+                    <div className="relative border-r border-slate-100 bg-[#1b325f]/[0.03]" style={{ height: GRID_HEIGHT }}>
+                      {GRID_HOURS.map((hour) => (
+                        <div
+                          key={hour}
+                          className="absolute inset-x-0 -translate-y-1/2 text-center font-mono text-xs font-bold tabular-nums text-[#1b325f]"
+                          style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX }}
+                        >
+                          {formatHourLabel(hour)}
+                        </div>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-sm">
-                    {timeSlots.map((slot) => (
-                      <tr key={slot} className="h-32 transition-colors hover:bg-[#1b325f]/[0.02]">
-                        <td className="border-r border-slate-100 bg-[#1b325f]/[0.03] p-4 text-center align-middle font-mono text-xs font-bold tabular-nums text-[#1b325f]">
-                          {slot}
-                        </td>
-                        {DAYS.map((day) => {
-                          const cellEntries = groupedSchedules[`${day.key}|${slot}`] || [];
+                    </div>
+
+                    {DAYS.map((day) => (
+                      <div
+                        key={day.key}
+                        className="relative border-r border-slate-100 last:border-r-0"
+                        style={{ height: GRID_HEIGHT }}
+                      >
+                        {/* Hour lines + click-to-create cells */}
+                        {GRID_HOURS.slice(0, -1).map((hour) => (
+                          <button
+                            key={hour}
+                            type="button"
+                            aria-label={`Create schedule on ${day.label} at ${formatHourLabel(hour)}`}
+                            onClick={() => openCreate(
+                              day.key,
+                              minutesToScheduleTime(hour * 60),
+                              minutesToScheduleTime((hour + 1) * 60)
+                            )}
+                            className="absolute inset-x-0 cursor-pointer border-t border-slate-100 text-xs text-transparent transition-colors hover:border-dashed hover:border-[#1b325f]/30 hover:bg-[#1b325f]/5 hover:text-[#1b325f]"
+                            style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX, height: HOUR_PX }}
+                          >
+                            +
+                          </button>
+                        ))}
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-slate-100" />
+
+                        {positionedByDay[day.key].map(({ entry, startMin, endMin, lane, lanes }) => {
+                          const height = ((endMin - startMin) / 60) * HOUR_PX;
                           return (
-                            <td key={day.key} className="border-r border-slate-100 p-3 align-top last:border-r-0">
-                              {cellEntries.length > 0 ? (
-                                <div className="space-y-2">
-                                  {cellEntries.map((entry) => (
-                                    <button
-                                      key={`${entry.id}-${entry.room}-${entry.subject}`}
-                                      type="button"
-                                      onClick={() => openEdit(entry)}
-                                      className={`flex min-h-[100px] w-full cursor-pointer flex-col justify-between rounded-lg p-3.5 text-left transition-all ${getColorClasses(entry.colorTheme)}`}
-                                    >
-                                      <div>
-                                        <div className="line-clamp-1 text-sm font-bold leading-snug">{entry.subject}</div>
-                                        <div className="mt-1 truncate text-xs opacity-80">{entry.teacher}</div>
-                                      </div>
-                                      <div className="mt-2 text-[11px] font-bold opacity-90">{entry.room}</div>
-                                    </button>
-                                  ))}
+                            <button
+                              key={`${entry.id}-${entry.room}-${entry.subject}`}
+                              type="button"
+                              onClick={() => openEdit(entry)}
+                              title={`${entry.subject} · ${entry.startTime} – ${entry.endTime} · ${entry.room}`}
+                              className={`absolute z-10 flex cursor-pointer flex-col overflow-hidden rounded-lg px-3 py-2 text-left transition-all ${getColorClasses(entry.colorTheme)}`}
+                              style={{
+                                top: ((startMin - GRID_START_MIN) / 60) * HOUR_PX + 1,
+                                height: height - 2,
+                                left: `calc(${(lane / lanes) * 100}% + 3px)`,
+                                width: `calc(${100 / lanes}% - 6px)`,
+                              }}
+                            >
+                              <div className="truncate text-sm font-bold leading-snug">{entry.subject}</div>
+                              {height >= 56 && <div className="mt-0.5 truncate text-xs opacity-80">{entry.teacher}</div>}
+                              {height >= 80 && <div className="mt-auto truncate text-[11px] font-bold opacity-90">{entry.room}</div>}
+                              {height >= 104 && (
+                                <div className="truncate text-[11px] tabular-nums opacity-70">
+                                  {entry.startTime} – {entry.endTime}
                                 </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => openCreate(day.key, slot)}
-                                  className="flex h-full min-h-[100px] w-full cursor-pointer items-center justify-center rounded-lg border border-transparent text-xs text-slate-300 transition-colors hover:border-dashed hover:border-[#1b325f]/30 hover:bg-[#1b325f]/5 hover:text-[#1b325f]"
-                                >
-                                  Unassigned
-                                </button>
                               )}
-                            </td>
+                            </button>
                           );
                         })}
-                      </tr>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
               </div>
+              {hiddenCount > 0 && (
+                <p className="border-t border-slate-100 bg-amber-50 px-5 py-2.5 text-xs font-medium text-amber-800">
+                  {hiddenCount} schedule{hiddenCount === 1 ? ' is' : 's are'} outside 7:00 AM – 7:00 PM and not shown here.
+                </p>
+              )}
             </section>
           ) : (
             <section className="rounded-2xl border border-[#1b325f]/10 bg-white px-6 py-16 text-center shadow-sm">
