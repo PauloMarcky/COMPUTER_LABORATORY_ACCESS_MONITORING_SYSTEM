@@ -64,10 +64,14 @@ const GRID_HOURS = Array.from(
   (_, i) => GRID_START_MIN / 60 + i
 );
 
-const formatHourLabel = (hour: number) => {
+const formatClock = (totalMinutes: number) => {
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
   const period = hour >= 12 ? 'PM' : 'AM';
-  return `${hour % 12 || 12}:00 ${period}`;
+  return `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, '0')}` : ''} ${period}`;
 };
+
+const formatHourLabel = (hour: number) => formatClock(hour * 60);
 
 const minutesToScheduleTime = (minutes: number) =>
   toScheduleTime(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
@@ -903,7 +907,7 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
               <div className="overflow-x-auto">
                 <div className="min-w-[900px]">
                   {/* Day header */}
-                  <div className="grid grid-cols-[9.5rem_repeat(5,minmax(0,1fr))] bg-[#1b325f] text-sm font-bold text-white">
+                  <div className="grid grid-cols-[5.5rem_repeat(5,minmax(0,1fr))] bg-[#1b325f] text-sm font-bold text-white">
                     <div className="border-r border-white/10 px-5 py-4 text-left font-semibold text-white/70">
                       Time
                     </div>
@@ -915,15 +919,15 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
                   </div>
 
                   {/* Time grid: 7 AM – 7 PM, block height follows duration */}
-                  <div className="grid grid-cols-[9.5rem_repeat(5,minmax(0,1fr))] py-3">
+                  <div className="grid grid-cols-[5.5rem_repeat(5,minmax(0,1fr))] pb-8">
                     <div className="relative border-r border-slate-100 bg-[#1b325f]/[0.03]" style={{ height: GRID_HEIGHT }}>
-                      {GRID_HOURS.slice(0, -1).map((hour) => (
+                      {GRID_HOURS.map((hour) => (
                         <div
                           key={hour}
-                          className="absolute inset-x-0 flex items-center justify-center whitespace-nowrap border-t border-slate-100 font-mono text-[11px] font-bold tabular-nums text-[#1b325f] first:border-t-0"
-                          style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX, height: HOUR_PX }}
+                          className="absolute inset-x-0 whitespace-nowrap border-t border-slate-300 pr-3 pt-1.5 text-right text-xs font-semibold tabular-nums text-slate-500"
+                          style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX }}
                         >
-                          {formatHourLabel(hour)} – {formatHourLabel(hour + 1)}
+                          {formatHourLabel(hour)}
                         </div>
                       ))}
                     </div>
@@ -945,13 +949,20 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
                               minutesToScheduleTime(hour * 60),
                               minutesToScheduleTime((hour + 1) * 60)
                             )}
-                            className="absolute inset-x-0 cursor-pointer border-t border-slate-100 text-xs text-transparent transition-colors hover:border-dashed hover:border-[#1b325f]/30 hover:bg-[#1b325f]/5 hover:text-[#1b325f]"
+                            className="absolute inset-x-0 cursor-pointer border-t border-slate-300 text-xs text-transparent transition-colors hover:border-dashed hover:border-[#1b325f]/30 hover:bg-[#1b325f]/5 hover:text-[#1b325f]"
                             style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX, height: HOUR_PX }}
                           >
                             +
                           </button>
                         ))}
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-slate-100" />
+                        {GRID_HOURS.slice(0, -1).map((hour) => (
+                          <div
+                            key={`half-${hour}`}
+                            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-slate-200"
+                            style={{ top: (hour - GRID_START_MIN / 60) * HOUR_PX + HOUR_PX / 2 }}
+                          />
+                        ))}
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-slate-300" />
 
                         {positionedByDay[day.key].map(({ entry, startMin, endMin, lane, lanes }) => {
                           const height = ((endMin - startMin) / 60) * HOUR_PX;
@@ -969,14 +980,14 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
                                 width: `calc(${100 / lanes}% - 6px)`,
                               }}
                             >
-                              <div className="truncate text-sm font-bold leading-snug">{entry.subject}</div>
-                              {height >= 56 && <div className="mt-0.5 truncate text-xs opacity-80">{entry.teacher}</div>}
-                              {height >= 80 && <div className="mt-auto truncate text-[11px] font-bold opacity-90">{entry.room}</div>}
-                              {height >= 104 && (
-                                <div className="truncate text-[11px] tabular-nums opacity-70">
-                                  {entry.startTime} – {entry.endTime}
+                              <div className="line-clamp-2 break-words text-sm font-bold leading-snug">{entry.subject}</div>
+                              {height >= 52 && (
+                                <div className="mt-0.5 truncate text-xs font-medium tabular-nums opacity-80">
+                                  {formatClock(timeToMinutes(entry.startTime))} – {formatClock(timeToMinutes(entry.endTime))}
                                 </div>
                               )}
+                              {height >= 78 && <div className="mt-1 truncate text-xs opacity-80">{entry.teacher}</div>}
+                              {height >= 100 && <div className="mt-auto truncate text-[11px] font-bold opacity-90">{entry.room}</div>}
                             </button>
                           );
                         })}
