@@ -54,8 +54,8 @@ const toScheduleTime = (time: string) => {
   return `${String(hour % 12 || 12).padStart(2, '0')}:${minute} ${period}`;
 };
 
-/* Time viewer: fixed 7 AM – midnight axis, blocks sized by duration */
-const GRID_START_MIN = 7 * 60;
+/* Time viewer: full-day axis, blocks sized by duration */
+const GRID_START_MIN = 0;
 const GRID_END_MIN = 24 * 60;
 const HOUR_PX = 80;
 const GRID_HEIGHT = ((GRID_END_MIN - GRID_START_MIN) / 60) * HOUR_PX;
@@ -93,7 +93,7 @@ const layoutDay = (entries: ScheduleEntry[]): PositionedEntry[] => {
       if (startMin === Number.MAX_SAFE_INTEGER) return null;
       if (endMin === Number.MAX_SAFE_INTEGER || endMin === startMin) endMin = startMin + 60;
       if (endMin < startMin) endMin += 24 * 60;
-      // Keep only the part inside 7 AM – midnight.
+      // Keep only the part inside the full-day grid.
       const s = Math.max(startMin, GRID_START_MIN);
       const e = Math.min(endMin, GRID_END_MIN);
       if (e <= s) return null;
@@ -920,7 +920,7 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
                     ))}
                   </div>
 
-                  {/* Time grid: 7 AM – midnight, block height follows duration */}
+                  {/* Time grid: full day, block height follows duration */}
                   <div className="grid grid-cols-[5.5rem_repeat(5,minmax(0,1fr))] pb-8">
                     <div className="relative border-r border-slate-100 bg-[#1b325f]/[0.03]" style={{ height: GRID_HEIGHT }}>
                       {GRID_HOURS.map((hour) => (
@@ -1000,7 +1000,7 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
               </div>
               {hiddenCount > 0 && (
                 <p className="border-t border-slate-100 bg-amber-50 px-5 py-2.5 text-xs font-medium text-amber-800">
-                  {hiddenCount} schedule{hiddenCount === 1 ? ' is' : 's are'} outside 7:00 AM – midnight and not shown here.
+                  {hiddenCount} schedule{hiddenCount === 1 ? ' is' : 's are'} outside the full-day grid and not shown here.
                 </p>
               )}
             </section>
