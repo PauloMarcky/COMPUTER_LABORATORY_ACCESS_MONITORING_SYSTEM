@@ -173,3 +173,15 @@ test('overnight schedules remain open after midnight and calculate lateness acro
   assert.equal(getAttendanceStatus(new Date('2026-10-01T15:20:00.000Z'), schedule), 'On-Time');
   assert.equal(getAttendanceStatus(new Date('2026-10-01T16:30:00.000Z'), schedule), 'Late');
 });
+
+test('noon schedules are open at 12 PM school time', () => {
+  const schedule = {
+    dayOfWeek: 'WEDNESDAY',
+    startTime: new Date('1970-01-01T12:00:00Z'),
+    endTime: new Date('1970-01-01T13:00:00Z'),
+  };
+
+  assert.equal(isScheduleOpenNow(schedule, new Date('2026-11-11T04:00:00.000Z')), true);
+  assert.equal(isScheduleOpenNow(schedule, new Date('2026-11-11T03:50:00.000Z')), true);
+  assert.equal(isScheduleOpenNow(schedule, new Date('2026-11-11T05:00:00.000Z')), false);
+});

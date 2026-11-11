@@ -19,6 +19,26 @@ const toMinutes = (time: string) => {
   return hour * 60 + Number(minuteText);
 };
 
+const SCHOOL_TIME_ZONE = import.meta.env.VITE_SCHOOL_TIME_ZONE || 'Asia/Manila';
+const EARLY_GRACE_MINUTES = 15;
+const SCHOOL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+const getSchoolDateTime = (date: Date) => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SCHOOL_TIME_ZONE,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || '';
+  return {
+    day: get('weekday'),
+    minutes: Number(get('hour')) % 24 * 60 + Number(get('minute')) + Number(get('second')) / 60,
+  };
+};
+
 export const InstructorSessionCheck = ({ schedules, onStartAttendance, onNavigate, onLogout }: InstructorSessionCheckProps) => {
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [matchedSchedule, setMatchedSchedule] = useState<ScheduleEntry | null>(null);
@@ -27,6 +47,7 @@ export const InstructorSessionCheck = ({ schedules, onStartAttendance, onNavigat
   const [startError, setStartError] = useState('');
   const selectedSchedule = schedules.find((schedule) => schedule.id === selectedScheduleId) || null;
   const currentTimeLabel = new Date().toLocaleTimeString('en-US', {
+    timeZone: SCHOOL_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -38,18 +59,23 @@ export const InstructorSessionCheck = ({ schedules, onStartAttendance, onNavigat
 
   const handleCheck = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const now = new Date();
-    const today = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.getDay()];
-    const currentMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+    const { day: today, minutes: currentMinutes } = getSchoolDateTime(new Date());
     const start = selectedSchedule ? toMinutes(selectedSchedule.startTime) : null;
     const end = selectedSchedule ? toMinutes(selectedSchedule.endTime) : null;
+    const isOvernight = start !== null && end !== null && end < start;
+    const nextDay = selectedSchedule
+      ? SCHOOL_DAYS[(SCHOOL_DAYS.indexOf(selectedSchedule.day) + 1) % SCHOOL_DAYS.length]
+      : null;
     const isScheduledNow = Boolean(
       selectedSchedule &&
-      selectedSchedule.day === today &&
       start !== null &&
       end !== null &&
-      currentMinutes >= start &&
-      currentMinutes < end
+      (
+        (selectedSchedule.day === today &&
+          currentMinutes >= start - EARLY_GRACE_MINUTES &&
+          (isOvernight || currentMinutes < end)) ||
+        (isOvernight && today === nextDay && currentMinutes < end)
+      )
     );
     setMatchedSchedule(isScheduledNow ? selectedSchedule : null);
     setHasChecked(true);
