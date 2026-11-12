@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { AdminSubNav } from '../../components/AdminComponents/AdminSubNav';
+import { AnalyticsSkeleton } from '../../components/LoadingSkeletons';
 import { API_BASE_URL, readApiResponse } from '../../api';
 import type { WireframeScreenId } from '../../types';
 
@@ -109,9 +110,7 @@ export const AdminStudentsAnalyticsView: React.FC<AdminAnalyticsProps> = ({
 
         <main className="admin-flat space-y-6">
           {loading && (
-            <section className="rounded-2xl border border-[#1b325f]/10 bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">
-              Loading analytics…
-            </section>
+            <AnalyticsSkeleton />
           )}
 
           {error && (

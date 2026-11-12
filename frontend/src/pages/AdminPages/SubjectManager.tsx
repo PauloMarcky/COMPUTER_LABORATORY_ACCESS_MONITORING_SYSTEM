@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Pencil, X, Trash2 } from 'lucide-react';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { AdminSubNav } from '../../components/AdminComponents/AdminSubNav';
+import { TableSkeletonRows } from '../../components/LoadingSkeletons';
 import { API_BASE_URL, readApiResponse } from '../../api';
 import type { WireframeScreenId } from '../../types';
 
@@ -238,11 +239,7 @@ export const SubjectManagerView: React.FC<Props> = ({ token, onNavigate, onLogou
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={4} className="py-16 text-center text-sm text-slate-400">
-                      Loading subjects...
-                    </td>
-                  </tr>
+                  <TableSkeletonRows columns={4} />
                 ) : subjects.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="py-16 text-center text-sm text-slate-400">

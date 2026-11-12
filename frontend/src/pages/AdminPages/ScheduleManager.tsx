@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { AdminSubNav } from '../../components/AdminComponents/AdminSubNav';
+import { ScheduleSkeleton } from '../../components/LoadingSkeletons';
 import { API_BASE_URL } from '../../api';
 import type {
   ScheduleEntry,
@@ -54,9 +55,9 @@ const toScheduleTime = (time: string) => {
   return `${String(hour % 12 || 12).padStart(2, '0')}:${minute} ${period}`;
 };
 
-/* Time viewer: full-day axis, blocks sized by duration */
-const GRID_START_MIN = 0;
-const GRID_END_MIN = 24 * 60;
+/* Time viewer: laboratory hours, blocks sized by duration */
+const GRID_START_MIN = 7 * 60;
+const GRID_END_MIN = 19 * 60;
 const HOUR_PX = 80;
 const GRID_HEIGHT = ((GRID_END_MIN - GRID_START_MIN) / 60) * HOUR_PX;
 const GRID_HOURS = Array.from(
@@ -299,6 +300,19 @@ const ScheduleFormModal: React.FC<ScheduleFormModalProps> = ({
 
     const selectedTerm = terms.find((t) => t.id === termId);
     const days = Array.from(selectedDays);
+    const startMinutes = timeToMinutes(toScheduleTime(startTime));
+    const endMinutes = timeToMinutes(toScheduleTime(endTime));
+    if (
+      startMinutes < GRID_START_MIN ||
+      startMinutes >= GRID_END_MIN ||
+      endMinutes <= GRID_START_MIN ||
+      endMinutes > GRID_END_MIN ||
+      endMinutes <= startMinutes
+    ) {
+      setActionError('Schedules must start and end between 7:00 AM and 7:00 PM.');
+      setIsSaving(false);
+      return;
+    }
 
     const baseEntry = {
       instructorId,
@@ -562,6 +576,8 @@ const ScheduleFormModal: React.FC<ScheduleFormModalProps> = ({
               <input
                 type="time"
                 required
+                min="07:00"
+                max="18:59"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-slate-50/60 px-3 py-2.5 font-mono text-sm font-medium tabular-nums text-slate-800 outline-none transition focus:border-[#1b325f] focus:bg-white focus:ring-4 focus:ring-[#1b325f]/15"
@@ -610,6 +626,8 @@ const ScheduleFormModal: React.FC<ScheduleFormModalProps> = ({
               <input
                 type="time"
                 required
+                min="07:01"
+                max="19:00"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-slate-50/60 px-3 py-2.5 font-mono text-sm font-medium tabular-nums text-slate-800 outline-none transition focus:border-[#1b325f] focus:bg-white focus:ring-4 focus:ring-[#1b325f]/15"
@@ -793,20 +811,16 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
   const filteredSchedules = schedules.filter((s) => {
     const matchesRoom = roomFilter === 'All Rooms' || s.room.includes(roomFilter);
     const matchesSem = !semFilter || s.semester === semFilter;
-    return matchesRoom && matchesSem;
+    const start = timeToMinutes(s.startTime);
+    const end = timeToMinutes(s.endTime);
+    const isWithinGrid = start >= GRID_START_MIN && end <= GRID_END_MIN && end > start;
+    return matchesRoom && matchesSem && isWithinGrid;
   });
 
   const positionedByDay = DAYS.reduce<Record<string, PositionedEntry[]>>((acc, day) => {
     acc[day.key] = layoutDay(filteredSchedules.filter((s) => s.day === day.key));
     return acc;
   }, {});
-
-  const hiddenCount = filteredSchedules.filter((s) => {
-    const start = timeToMinutes(s.startTime);
-    let end = timeToMinutes(s.endTime);
-    if (end < start) end += 24 * 60;
-    return start === Number.MAX_SAFE_INTEGER || end <= GRID_START_MIN || start >= GRID_END_MIN;
-  }).length;
 
   const getColorClasses = (theme: ScheduleEntry['colorTheme']) => {
     switch (theme) {
@@ -901,10 +915,8 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
           )}
 
           {isLoading ? (
-            <section className="rounded-2xl border border-[#1b325f]/10 bg-white px-6 py-16 text-center text-base text-slate-500 shadow-sm">
-              Loading schedules...
-            </section>
-          ) : schedules.length > 0 ? (
+            <ScheduleSkeleton />
+          ) : filteredSchedules.length > 0 ? (
             <section className="overflow-hidden rounded-2xl border border-[#1b325f]/10 bg-white shadow-lg shadow-[#1b325f]/5">
               <div className="overflow-x-auto">
                 <div className="min-w-[900px]">
@@ -998,11 +1010,6 @@ export const AdminScheduleModuleView: React.FC<AdminScheduleModuleProps> = ({
                   </div>
                 </div>
               </div>
-              {hiddenCount > 0 && (
-                <p className="border-t border-slate-100 bg-amber-50 px-5 py-2.5 text-xs font-medium text-amber-800">
-                  {hiddenCount} schedule{hiddenCount === 1 ? ' is' : 's are'} outside the full-day grid and not shown here.
-                </p>
-              )}
             </section>
           ) : (
             <section className="rounded-2xl border border-[#1b325f]/10 bg-white px-6 py-16 text-center shadow-sm">

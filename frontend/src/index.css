@@ -2,6 +2,7 @@
 
 @theme {
   --animate-pop-in: pop-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  --animate-skeleton: skeleton 1.4s ease-in-out infinite;
 }
 
 @layer base {
@@ -195,6 +196,52 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes skeleton {
+  0%, 100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes intro-logo {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+  }
+}
+
+@keyframes intro-exit {
+  0%, 72% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.animate-intro-logo {
+  animation: intro-logo 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-intro-exit {
+  animation: intro-exit 1.2s ease-out both;
 }
 
 @keyframes admin-sidebar-slide-in {

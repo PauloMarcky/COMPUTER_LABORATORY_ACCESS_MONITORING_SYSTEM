@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Search, UserPlus, Trash2, Users } from 'lucide-react';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { AdminSubNav } from '../../components/AdminComponents/AdminSubNav';
+import { RosterSkeleton } from '../../components/LoadingSkeletons';
 import { API_BASE_URL, readApiResponse } from '../../api';
 import type { ScheduleEntry, WireframeScreenId } from '../../types';
 
@@ -186,9 +187,7 @@ export const ManageRosterView: React.FC<Props> = ({ schedule, token, onNavigate,
           )}
 
           {loading ? (
-            <section className="rounded-xl border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
-              Loading roster...
-            </section>
+            <RosterSkeleton />
           ) : data ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <section className="bg-white rounded-xl border border-slate-200/90 p-5 space-y-4">

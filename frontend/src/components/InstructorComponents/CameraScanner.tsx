@@ -347,6 +347,8 @@ const CameraScannerInner: React.FC<CameraScannerProps> = ({ active, scheduleId, 
           setStatus(
             data.reason === 'OUTSIDE_SCHEDULE'
               ? 'This class is not in session right now'
+              : data.reason === 'PHONE_SCREEN_NOT_ALLOWED'
+                ? 'Phone screens are not accepted — use the physical ID card'
               : 'Align Student ID inside the frame'
           );
           return;

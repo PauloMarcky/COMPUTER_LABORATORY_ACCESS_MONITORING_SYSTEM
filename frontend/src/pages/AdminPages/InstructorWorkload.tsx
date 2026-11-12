@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Search, SlidersHorizontal, Plus, Trash2, X } from 'lucide-react';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { AdminSubNav } from '../../components/AdminComponents/AdminSubNav';
+import { TableSkeletonRows } from '../../components/LoadingSkeletons';
 import { API_BASE_URL, readApiResponse } from '../../api';
 import type { WireframeScreenId } from '../../types';
 
@@ -269,11 +270,7 @@ export const AdminTeacherWorkloadView: React.FC<AdminTeacherWorkloadProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <tr>
-                      <td colSpan={4} className="py-16 text-center text-sm text-slate-400">
-                        Loading instructors...
-                      </td>
-                    </tr>
+                    <TableSkeletonRows columns={4} />
                   ) : filteredInstructors.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-16 text-center text-sm text-slate-400">

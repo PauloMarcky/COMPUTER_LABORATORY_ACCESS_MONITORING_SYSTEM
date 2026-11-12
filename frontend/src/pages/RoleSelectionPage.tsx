@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { WireframeScreenId } from "../types";
 import ClamsFooter from '../components/ClamsFooter';
 import clams_bg from '../assets/images/clams_bg_1.jpg';
@@ -11,6 +11,12 @@ export const RoleSelectionPage = ({
   onNavigate: (screen: WireframeScreenId) => void;
 }) => {
   const [loadingTarget, setLoadingTarget] = useState<WireframeScreenId | null>(null);
+  const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowIntro(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleNavigate = (screen: WireframeScreenId) => {
     setLoadingTarget(screen);
@@ -27,18 +33,35 @@ export const RoleSelectionPage = ({
 
       <div className="absolute inset-0 bg-[#01001A]/60 pointer-events-none backdrop-blur-xs" />
 
+      {/* First-page intro */}
+      {showIntro && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#01001A] text-white animate-intro-exit">
+          <img
+            src={ulsCitLogo}
+            alt="College of Information Technology logo"
+            className="h-28 w-28 object-contain animate-intro-logo"
+          />
+          <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.3em] text-blue-100/80">
+            College of Information Technology
+          </p>
+        </div>
+      )}
+
       {/* Loading overlay */}
       {loadingTarget && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#000047]/40 backdrop-blur-xs">
-          <div className="h-12 w-12 rounded-full border-4 border-white/30 border-t-white animate-spin" />
-          <p className="mt-4 text-sm font-medium text-white tracking-wide">
-          </p>
+          <div
+            className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white"
+            role="status"
+            aria-label="Loading page"
+          />
+          <span className="sr-only">Loading page</span>
         </div>
       )}
 
       {/* Content sits above the overlay */}
       <div className="relative z-10 flex-1 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-[500px] overflow-hidden rounded-2xl border border-white/40 bg-white/90 shadow-2xl shadow-purple-950/40 backdrop-blur-xs">
+        <div className="relative w-full max-w-[500px] overflow-hidden rounded-none border border-white/40 bg-white/90 shadow-2xl shadow-purple-950/40 backdrop-blur-xs sm:rounded-lg">
 
           {/* Header strip */}
           <div className="relative bg-[#1b325f] px-10 pt-8 pb-8">

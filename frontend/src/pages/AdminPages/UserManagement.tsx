@@ -3,6 +3,7 @@ import { Eye, EyeOff, FileSpreadsheet, KeyRound, Pencil, Plus, Save, Trash2, X }
 import { readSheet } from 'read-excel-file/browser';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { AdminSubNav } from '../../components/AdminComponents/AdminSubNav';
+import { SkeletonBlock, SkeletonRows } from '../../components/LoadingSkeletons';
 import { API_BASE_URL, readApiResponse } from '../../api';
 import type { ManagedUser, ManagedUserRole, UserRole, WireframeScreenId } from '../../types';
 
@@ -788,7 +789,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({ adminToken, onNa
               </div>
 
               {isLoading ? (
-                <p className="px-6 py-16 text-center text-sm text-slate-500">Loading users...</p>
+                <div className="space-y-4 px-6 py-6" role="status" aria-label="Loading users">
+                  <div className="grid grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <SkeletonBlock key={index} className="h-3 rounded-sm" />
+                    ))}
+                  </div>
+                  <SkeletonRows count={7} />
+                </div>
               ) : users.length === 0 ? (
                 <p className="px-6 py-16 text-center text-sm text-slate-500">No users yet.</p>
               ) : (

@@ -6,6 +6,7 @@ import {
 import { jsPDF } from 'jspdf';
 import { ClamsHeader } from '../../components/ClamsHeader';
 import { LabStaffSubNav } from '../../components/CustodianComponents/LabStaffSubNav';
+import { SkeletonRows } from '../../components/LoadingSkeletons';
 import { formatPcChain, formatPcTimeline, formatSchoolDate } from '../../utils/attendance-time';
 import { API_BASE_URL, readApiResponse } from '../../api';
 import type { LabRoomStatus, LabUsageRecord, Pc, PcStatus, WireframeScreenId } from '../../types';
@@ -434,7 +435,9 @@ const RoomsTab: React.FC<{
                 {expandedRoomId === room.id && (
                   <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     {pcsLoading === room.id ? (
-                      <p className="py-4 text-center text-xs text-slate-400">Loading PCs…</p>
+                      <div className="py-2" role="status" aria-label="Loading computers">
+                        <SkeletonRows count={3} />
+                      </div>
                     ) : pcsError && !pcsByRoom[room.id] ? (
                       <p className="py-4 text-center text-xs text-rose-600">{pcsError}</p>
                     ) : (
